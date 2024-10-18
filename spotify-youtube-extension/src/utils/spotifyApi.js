@@ -1,18 +1,22 @@
 /*global chrome*/
 
-import { refreshAccessToken } from './spotifyAuth';
-
 const SPOTIFY_API_BASE_URL = 'https://api.spotify.com/v1';
+const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID;
 
 const getHeaders = async () => {
-  let { spotify_access_token } = await chrome.storage.local.get('spotify_access_token');
+  let { accessToken } = await chrome.storage.local.get('accessToken');
 
-  if (!spotify_access_token) {
-    spotify_access_token = await refreshAccessToken();
+  if (!accessToken) {
+    const { refreshToken } = await chrome.storage.local.get('refreshToken');
+    if (refreshToken) {
+      accessToken = await refreshAccessToken(CLIENT_ID, refreshToken);
+    } else {
+      throw new Error('No access token or refresh token found');
+    }
   }
 
   return {
-    Authorization: `Bearer ${spotify_access_token}`,
+    Authorization: `Bearer ${accessToken}`,
     'Content-Type': 'application/json',
   };
 };
@@ -20,7 +24,8 @@ const getHeaders = async () => {
 const handleResponse = async (response) => {
   if (response.status === 401) {
     // Token expired, refresh and retry
-    await refreshAccessToken();
+    const { refreshToken } = await chrome.storage.local.get('refreshToken');
+    await refreshAccessToken(CLIENT_ID, refreshToken);
     throw new Error('Token refreshed, please retry the request');
   }
 

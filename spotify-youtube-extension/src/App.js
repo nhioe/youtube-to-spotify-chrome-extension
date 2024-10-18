@@ -1,69 +1,117 @@
 /*global chrome*/
 
-import React, { useState, useEffect } from 'react';
-import { initiateSpotifyAuth, getAccessToken } from './utils/spotifyAuth';
-import { getCurrentUserProfile, getUserPlaylists } from './utils/spotifyApi';
-import './App.css';
+import React, { useState, useEffect } from "react";
+import { startAuthFlow } from "./utils/spotifyAuth";
 
 function App() {
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [userProfile, setUserProfile] = useState(null);
-  const [playlists, setPlaylists] = useState([]);
+  const [profile, setProfile] = useState(null);
 
+  const fetchProfile = async () => {
+    try {
+      const { accessToken } = await chrome.storage.local.get('accessToken');
+      if (!accessToken) {
+        console.error('No access token available');
+        return;
+      }
+
+      const response = await fetch('https://api.spotify.com/v1/me', {
+        headers: {
+          Authorization: 'Bearer ' + accessToken,
+        }
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to fetch profile');
+      }
+      
+      const data = await response.json();
+      setProfile(data);
+      console.log(data);
+    } catch (error) {
+      console.error("Failed to fetch profile:", error);
+    }
+  }
+  
+  
+  const refreshAccessToken = async () => {
+    const response = await chrome.runtime.sendMessage({ action: 'refreshToken' });
+    console.log('Response from background:', response);
+    if (chrome.runtime.lastError) {
+      console.error('Runtime error:', chrome.runtime.lastError.message);
+      console.log('Response from background:', response);
+    } else if (response && response.success) {
+      console.log('Token refreshed:', response.token);
+    } else {
+      console.error('Error refreshing token:', response ? response.error : 'No response');
+    }
+  };
+  
+
+  const logTokens = async () => {
+    const access_token = await chrome.storage.local.get('accessToken');
+    const refresh_token = await chrome.storage.local.get('refreshToken');
+    console.log("Access token: ", access_token);
+    console.log("Refresh token: ", refresh_token);
+  }
+
+  const clearChrome = async () => {
+    await chrome.storage.local.clear();
+    console.log('Chrome storage cleared.');
+  }
+  /*
   useEffect(() => {
-    checkLoginStatus();
+    // Dealing with auth page
+    const handleAuthRedirect = async () => {
+      const urlParams = new URLSearchParams(window.location.search);
+      const code = urlParams.get('code');
+      if (code) {
+        chrome.runtime.sendMessage({ action: 'getToken' }, (response) => {
+          if (chrome.runtime.lastError) {
+            console.error('Runtime error:', chrome.runtime.lastError.message);
+          } else if (response && response.success) {
+            console.log('Token added:', response.token);
+          } else {
+            console.error('Error getting token:', response ? response.error : 'No response');
+          }
+        });
+      }
+    };
+
+    // Check if a token is already stored in chrome.storage
+    chrome.storage.local.get('accessToken', (result) => {
+      if (!result.accessToken) {
+        handleAuthRedirect();
+      }
+    });
   }, []);
-
-  const checkLoginStatus = async () => {
-    const { spotify_access_token } = await chrome.storage.local.get('spotify_access_token');
-    if (spotify_access_token) {
-      setIsLoggedIn(true);
-      fetchUserData();
-    }
-  };
-
-  const fetchUserData = async () => {
-    try {
-      const profile = await getCurrentUserProfile();
-      setUserProfile(profile);
-      const playlistsData = await getUserPlaylists();
-      setPlaylists(playlistsData.items);
-    } catch (error) {
-      console.error('Error fetching user data:', error);
-    }
-  };
-
-  const handleLogin = async () => {
-    try {
-      const code = await initiateSpotifyAuth();
-      await getAccessToken(code);
-      setIsLoggedIn(true);
-      fetchUserData();
-    } catch (error) {
-      console.error('Login failed:', error);
-    }
-  };
+  */
 
   return (
     <div className="App">
-      <header className="App-header">
-        <h1>Spotify YouTube Extension</h1>
-        {!isLoggedIn ? (
-          <button className="login-button" onClick={handleLogin}>
-            Login to Spotify
-          </button>
-        ) : (
-          <div>
-            <p>Welcome, {userProfile?.display_name}!</p>
-            <h2>Your Playlists:</h2>
-            <ul className="playlist-list">
-              {playlists.map((playlist) => (
-                <li key={playlist.id}>{playlist.name}</li>
-              ))}
-            </ul>
-          </div>
-        )}
-      </header>
+      <h1>Spotify Authorization</h1>
+      <button onClick={() => startAuthFlow()}>
+        Authorize with Spotify
+      </button>
+      <button onClick={fetchProfile}>
+        Fetch Profile
+      </button>
+      <button onClick={refreshAccessToken}>
+        Refresh Token
+      </button>
+      <button onClick={logTokens}>
+        Log Chrome Tokens
+      </button>
+      <button onClick={clearChrome}>
+        Clear Local Chrome
+      </button>
+      {profile && (
+        <div>
+          <h2>Profile Information</h2>
+          <p>Name: {profile.display_name}</p>
+          <p>Email: {profile.email}</p>
+          <p>Spotify URI: {profile.uri}</p>
+        </div>
+      )}
     </div>
   );
 }
