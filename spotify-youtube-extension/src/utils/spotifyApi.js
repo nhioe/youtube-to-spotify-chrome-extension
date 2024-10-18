@@ -1,67 +1,67 @@
 /*global chrome*/
 
 const SPOTIFY_API_BASE_URL = 'https://api.spotify.com/v1';
-const CLIENT_ID = process.env.REACT_APP_SPOTIFY_CLIENT_ID;
 
-const getHeaders = async () => {
-  let { accessToken } = await chrome.storage.local.get('accessToken');
+class SpotifyAPI {
+  static async makeRequest(endpoint, method = 'GET', body = null) {
+    const { accessToken } = await chrome.storage.local.get('accessToken');
+    if (!accessToken) {
+      throw new Error('No access token available');
+    }
 
-  if (!accessToken) {
-    const { refreshToken } = await chrome.storage.local.get('refreshToken');
-    if (refreshToken) {
-      accessToken = await refreshAccessToken(CLIENT_ID, refreshToken);
-    } else {
-      throw new Error('No access token or refresh token found');
+    const url = `${SPOTIFY_API_BASE_URL}${endpoint}`;
+    console.log('Making request to:', url); // Add this line for debugging
+
+    const response = await fetch(url, {
+      method,
+      headers: {
+        Authorization: `Bearer ${accessToken}`,
+        'Content-Type': 'application/json',
+      },
+      body: body ? JSON.stringify(body) : null,
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        // Token expired, try to refresh
+        await this.refreshAccessToken();
+        return this.makeRequest(endpoint, method, body);
+      }
+      throw new Error(`API request failed: ${response.statusText}`);
+    }
+    const test = response.clone();
+    console.log(test.json());
+    return response.json();
+  }
+
+  static async refreshAccessToken() {
+    try {
+      const response = await chrome.runtime.sendMessage({ action: 'refreshToken' });
+      if (!response || !response.success) {
+        throw new Error(response ? response.error : 'Failed to refresh token');
+      }
+      return response.token;
+    } catch (error) {
+      console.error('Error refreshing token:', error);
+      throw error;
     }
   }
 
-  return {
-    Authorization: `Bearer ${accessToken}`,
-    'Content-Type': 'application/json',
-  };
-};
-
-const handleResponse = async (response) => {
-  if (response.status === 401) {
-    // Token expired, refresh and retry
-    const { refreshToken } = await chrome.storage.local.get('refreshToken');
-    await refreshAccessToken(CLIENT_ID, refreshToken);
-    throw new Error('Token refreshed, please retry the request');
+  static async fetchProfile() {
+    return this.makeRequest('/me');
   }
 
-  if (!response.ok) {
-    throw new Error(`API request failed: ${response.statusText}`);
+  static async searchTracks(query) {
+    return this.makeRequest(`/search?q=${encodeURIComponent(query)}&type=track&limit=10`);
   }
 
-  return response.json();
-};
+  static async getUserPlaylists() {
+    return this.makeRequest('/me/playlists');
+  }
 
-export const searchTrack = async (query) => {
-  const headers = await getHeaders();
-  const response = await fetch(`${SPOTIFY_API_BASE_URL}/search?q=${encodeURIComponent(query)}&type=track&limit=1`, {
-    headers,
-  });
-  return handleResponse(response);
-};
+  static async addTrackToPlaylist(playlistId, trackUri) {
+    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', { uris: [trackUri] });
+  }
+}
 
-export const addTrackToPlaylist = async (playlistId, trackUri) => {
-  const headers = await getHeaders();
-  const response = await fetch(`${SPOTIFY_API_BASE_URL}/playlists/${playlistId}/tracks`, {
-    method: 'POST',
-    headers,
-    body: JSON.stringify({ uris: [trackUri] }),
-  });
-  return handleResponse(response);
-};
-
-export const getCurrentUserProfile = async () => {
-  const headers = await getHeaders();
-  const response = await fetch(`${SPOTIFY_API_BASE_URL}/me`, { headers });
-  return handleResponse(response);
-};
-
-export const getUserPlaylists = async () => {
-  const headers = await getHeaders();
-  const response = await fetch(`${SPOTIFY_API_BASE_URL}/me/playlists`, { headers });
-  return handleResponse(response);
-};
+export default SpotifyAPI;

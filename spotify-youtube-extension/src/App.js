@@ -2,114 +2,149 @@
 
 import React, { useState, useEffect } from "react";
 import { startAuthFlow } from "./utils/spotifyAuth";
+import SpotifyAPI from "./utils/spotifyApi";
 
 function App() {
   const [profile, setProfile] = useState(null);
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [searchResults, setSearchResults] = useState([]);
+  const [playlists, setPlaylists] = useState([]);
+  const [selectedPlaylist, setSelectedPlaylist] = useState("");
+  const [error, setError] = useState(null);
+
+  useEffect(() => {
+    checkLoginStatus();
+  }, []);
+
+  const checkLoginStatus = async () => {
+    const { accessToken } = await chrome.storage.local.get('accessToken');
+    if (accessToken) {
+      setIsLoggedIn(true);
+      fetchProfile();
+      fetchPlaylists();
+    }
+    setIsLoading(false);
+  };
 
   const fetchProfile = async () => {
     try {
-      const { accessToken } = await chrome.storage.local.get('accessToken');
-      if (!accessToken) {
-        console.error('No access token available');
-        return;
-      }
-
-      const response = await fetch('https://api.spotify.com/v1/me', {
-        headers: {
-          Authorization: 'Bearer ' + accessToken,
-        }
-      });
-
-      if (!response.ok) {
-        throw new Error('Failed to fetch profile');
-      }
-      
-      const data = await response.json();
+      const data = await SpotifyAPI.fetchProfile();
       setProfile(data);
-      console.log(data);
+      setError(null);
     } catch (error) {
       console.error("Failed to fetch profile:", error);
-    }
-  }
-  
-  
-  const refreshAccessToken = async () => {
-    const response = await chrome.runtime.sendMessage({ action: 'refreshToken' });
-    console.log('Response from background:', response);
-    if (chrome.runtime.lastError) {
-      console.error('Runtime error:', chrome.runtime.lastError.message);
-      console.log('Response from background:', response);
-    } else if (response && response.success) {
-      console.log('Token refreshed:', response.token);
-    } else {
-      console.error('Error refreshing token:', response ? response.error : 'No response');
+      setError("Failed to fetch profile. Please try logging in again.");
+      setIsLoggedIn(false);
     }
   };
-  
 
-  const logTokens = async () => {
-    const access_token = await chrome.storage.local.get('accessToken');
-    const refresh_token = await chrome.storage.local.get('refreshToken');
-    console.log("Access token: ", access_token);
-    console.log("Refresh token: ", refresh_token);
-  }
+  const fetchPlaylists = async () => {
+    try {
+      const data = await SpotifyAPI.getUserPlaylists();
+      setPlaylists(data.items);
+      setError(null);
+    } catch (error) {
+      console.error("Failed to fetch playlists:", error);
+      setError("Failed to fetch playlists. Please try again.");
+    }
+  };
 
-  const clearChrome = async () => {
+  const handleSignIn = async () => {
+    try {
+      await startAuthFlow();
+      checkLoginStatus();
+    } catch (error) {
+      console.error("Failed to sign in:", error);
+      setError("Failed to sign in. Please try again.");
+    }
+  };
+
+  const handleLogout = async () => {
     await chrome.storage.local.clear();
-    console.log('Chrome storage cleared.');
-  }
-  /*
-  useEffect(() => {
-    // Dealing with auth page
-    const handleAuthRedirect = async () => {
-      const urlParams = new URLSearchParams(window.location.search);
-      const code = urlParams.get('code');
-      if (code) {
-        chrome.runtime.sendMessage({ action: 'getToken' }, (response) => {
-          if (chrome.runtime.lastError) {
-            console.error('Runtime error:', chrome.runtime.lastError.message);
-          } else if (response && response.success) {
-            console.log('Token added:', response.token);
-          } else {
-            console.error('Error getting token:', response ? response.error : 'No response');
-          }
-        });
-      }
-    };
+    setIsLoggedIn(false);
+    setProfile(null);
+    setPlaylists([]);
+    setSelectedPlaylist("");
+    setSearchResults([]);
+    setError(null);
+    console.log('Logged out and Chrome storage cleared.');
+  };
 
-    // Check if a token is already stored in chrome.storage
-    chrome.storage.local.get('accessToken', (result) => {
-      if (!result.accessToken) {
-        handleAuthRedirect();
-      }
-    });
-  }, []);
-  */
+  const handleSearch = async () => {
+    if (!searchQuery.trim()) return;
+    try {
+      const data = await SpotifyAPI.searchTracks(searchQuery);
+      setSearchResults(data.tracks.items);
+      setError(null);
+    } catch (error) {
+      console.error("Failed to search tracks:", error);
+      setError("Failed to search tracks. Please try again.");
+    }
+  };
+
+  const handleAddToPlaylist = async (trackUri) => {
+    if (!selectedPlaylist) {
+      setError("Please select a playlist first.");
+      return;
+    }
+    try {
+      await SpotifyAPI.addTrackToPlaylist(selectedPlaylist, trackUri);
+      setError("Track added to playlist successfully!");
+    } catch (error) {
+      console.error("Failed to add track to playlist:", error);
+      setError("Failed to add track to playlist. Please try again.");
+    }
+  };
+
+  if (isLoading) {
+    return <div>Loading...</div>;
+  }
 
   return (
     <div className="App">
-      <h1>Spotify Authorization</h1>
-      <button onClick={() => startAuthFlow()}>
-        Authorize with Spotify
-      </button>
-      <button onClick={fetchProfile}>
-        Fetch Profile
-      </button>
-      <button onClick={refreshAccessToken}>
-        Refresh Token
-      </button>
-      <button onClick={logTokens}>
-        Log Chrome Tokens
-      </button>
-      <button onClick={clearChrome}>
-        Clear Local Chrome
-      </button>
-      {profile && (
+      <h1>Spotify YouTube Extension</h1>
+      {error && <div style={{color: 'red'}}>{error}</div>}
+      {!isLoggedIn ? (
+        <button onClick={handleSignIn}>Sign in with Spotify</button>
+      ) : (
         <div>
-          <h2>Profile Information</h2>
-          <p>Name: {profile.display_name}</p>
-          <p>Email: {profile.email}</p>
-          <p>Spotify URI: {profile.uri}</p>
+          <button onClick={handleLogout}>Logout</button>
+          {profile && (
+            <div>
+              <h2>Welcome, {profile.display_name}!</h2>
+              <img src={profile.images[0]?.url} alt="Profile" style={{width: 50, height: 50}} />
+            </div>
+          )}
+          <div>
+            <input 
+              type="text" 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)}
+              placeholder="Search for a song"
+            />
+            <button onClick={handleSearch}>Search</button>
+          </div>
+          <div>
+            <select 
+              value={selectedPlaylist} 
+              onChange={(e) => setSelectedPlaylist(e.target.value)}
+            >
+              <option value="">Select a playlist</option>
+              {playlists.map(playlist => (
+                <option key={playlist.id} value={playlist.id}>{playlist.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            {searchResults.map(track => (
+              <div key={track.id}>
+                {track.name} by {track.artists[0].name}
+                <button onClick={() => handleAddToPlaylist(track.uri)}>Add to Playlist</button>
+              </div>
+            ))}
+          </div>
         </div>
       )}
     </div>

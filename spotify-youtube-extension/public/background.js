@@ -1,6 +1,6 @@
 /*global chrome*/
 
-import { getToken, refreshToken } from "./authTokens.js";
+import { getToken, refreshAuthToken } from "./authTokens.js";
 
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     if (request.action === 'openAuthTab') {
@@ -12,7 +12,9 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         getToken(request.code)
             .then(token => {
                 console.log("Token received:", token);
-                sendResponse({ success: true, token });
+                chrome.storage.local.set({ accessToken: token.access_token, refreshToken: token.refresh_token }, () => {
+                    sendResponse({ success: true, token: token.access_token });
+                });
             })
             .catch(error => {
                 console.error('Error retrieving token:', error);
@@ -21,15 +23,23 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
         return true;
     } 
     else if (request.action === 'refreshToken') {
-        refreshToken()
-            .then(token => {
-                console.log("Token refreshed:", token);
-                sendResponse({ success: true, token });
-            })
-            .catch(error => {
-                console.error('Error refreshing token:', error);
-                sendResponse({ success: false, error: error.message });
-            });
+        chrome.storage.local.get('refreshToken', ({ refreshToken }) => {
+            if (!refreshToken) {
+                sendResponse({ success: false, error: 'No refresh token available' });
+                return;
+            }
+            refreshAuthToken(refreshToken)
+                .then(token => {
+                    console.log("Token refreshed:", token);
+                    chrome.storage.local.set({ accessToken: token.access_token }, () => {
+                        sendResponse({ success: true, token: token.access_token });
+                    });
+                })
+                .catch(error => {
+                    console.error('Error refreshing token:', error);
+                    sendResponse({ success: false, error: error.message });
+                });
+        });
         return true;
     } 
     else {

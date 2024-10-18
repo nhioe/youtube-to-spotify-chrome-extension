@@ -44,7 +44,7 @@ export const getToken = async (code) => {
     }
   }
   
-  export const refreshToken = async () => {
+  export const refreshAuthToken = async () => {
     try {
       const { refreshToken } = await chrome.storage.local.get('refreshToken');
       
