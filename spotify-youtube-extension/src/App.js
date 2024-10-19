@@ -2,7 +2,8 @@
 
 import React, { useState, useEffect } from "react";
 import { startAuthFlow } from "./utils/spotifyAuth";
-import SpotifyAPI from "./utils/spotifyApi";
+import SpotifyAPI from "./utils/spotifyAPI";
+import './App.css';
 
 function App() {
   const [profile, setProfile] = useState(null);
@@ -18,14 +19,27 @@ function App() {
     checkLoginStatus();
   }, []);
 
-  const checkLoginStatus = async () => {
-    const { accessToken } = await chrome.storage.local.get('accessToken');
-    if (accessToken) {
-      setIsLoggedIn(true);
-      fetchProfile();
-      fetchPlaylists();
+  const checkLoginStatus = async (retryCount = 0) => {
+    try {
+      setIsLoading(true);
+      await new Promise(resolve => setTimeout(resolve, 500)); // Add a small delay
+
+      const { accessToken } = await chrome.storage.local.get('accessToken');
+      if (accessToken) {
+        setIsLoggedIn(true);
+        await fetchProfile();
+        await fetchPlaylists();
+      } else if (retryCount < 3) {
+        // Retry up to 3 times with increasing delays
+        setTimeout(() => checkLoginStatus(retryCount + 1), (retryCount + 1) * 1000);
+        return;
+      }
+    } catch (error) {
+      console.error("Error checking login status:", error);
+      setError("Failed to check login status. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
-    setIsLoading(false);
   };
 
   const fetchProfile = async () => {
@@ -53,15 +67,19 @@ function App() {
 
   const handleSignIn = async () => {
     try {
+      setIsLoading(true);
       await startAuthFlow();
-      checkLoginStatus();
+      await checkLoginStatus();
     } catch (error) {
       console.error("Failed to sign in:", error);
       setError("Failed to sign in. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   const handleLogout = async () => {
+    setIsLoading(true);
     await chrome.storage.local.clear();
     setIsLoggedIn(false);
     setProfile(null);
@@ -70,17 +88,21 @@ function App() {
     setSearchResults([]);
     setError(null);
     console.log('Logged out and Chrome storage cleared.');
+    setIsLoading(false);
   };
 
   const handleSearch = async () => {
     if (!searchQuery.trim()) return;
     try {
+      setIsLoading(true);
       const data = await SpotifyAPI.searchTracks(searchQuery);
       setSearchResults(data.tracks.items);
       setError(null);
     } catch (error) {
       console.error("Failed to search tracks:", error);
       setError("Failed to search tracks. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -90,16 +112,25 @@ function App() {
       return;
     }
     try {
+      setIsLoading(true);
       await SpotifyAPI.addTrackToPlaylist(selectedPlaylist, trackUri);
       setError("Track added to playlist successfully!");
     } catch (error) {
       console.error("Failed to add track to playlist:", error);
       setError("Failed to add track to playlist. Please try again.");
+    } finally {
+      setIsLoading(false);
     }
   };
 
   if (isLoading) {
-    return <div>Loading...</div>;
+    return (
+      <div className="App">
+        <h1>Spotify YouTube Extension</h1>
+        <div className="loading-spinner"></div>
+        <p>Loading...</p>
+      </div>
+    );
   }
 
   return (
