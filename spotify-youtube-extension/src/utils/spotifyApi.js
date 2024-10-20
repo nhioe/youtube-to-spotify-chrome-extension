@@ -51,12 +51,16 @@ class SpotifyAPI {
     return this.makeRequest('/me');
   }
 
-  static async searchTracks(query) {
-    return this.makeRequest(`/search?q=${encodeURIComponent(query)}&type=track&limit=10`);
-  }
-
   static async getUserPlaylists() {
     return this.makeRequest('/me/playlists');
+  }
+
+  static async getPlaylistTracks(playlistId) {
+    return this.makeRequest(`/playlists/${playlistId}/tracks`);
+  }
+  
+  static async searchTracks(query, limit = 20, offset = 0) {
+    return this.makeRequest(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&offset=${offset}`);
   }
 
   static async addTrackToPlaylist(playlistId, trackUri) {
