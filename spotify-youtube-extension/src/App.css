@@ -14,7 +14,6 @@ body {
   box-sizing: border-box;
 }
 
-/* Add padding to accommodate scrollbar */
 .App::-webkit-scrollbar {
   width: 10px;
 }
@@ -272,14 +271,13 @@ h1 {
 .extension-content {
   height: 100%;
   overflow-y: auto;
-  padding-right: 10px; /* Add padding to prevent content from being cut off by scrollbar */
+  padding-right: 10px; 
 }
 
 .loading-more {
   margin-top: 20px;
 }
 
-/* Skeleton styles */
 .skeleton-item {
   display: flex;
   align-items: center;
