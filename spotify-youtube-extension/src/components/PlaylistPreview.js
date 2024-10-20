@@ -13,7 +13,13 @@ const PlaylistPreview = ({ tracks, onRemoveTrack }) => {
               <div className="playlist-track-name">{track.name}</div>
               <div className="playlist-track-artist">{track.artists[0].name}</div>
             </div>
-            <button onClick={() => onRemoveTrack(track.uri)} className="btn btn-remove">
+            <button 
+              onClick={() => {
+                console.log("Removing track:", track.name, "URI:", track.uri); // Add this line for debugging
+                onRemoveTrack(track.uri);
+              }} 
+              className="btn btn-remove"
+            >
               <X size={12} />
             </button>
           </div>

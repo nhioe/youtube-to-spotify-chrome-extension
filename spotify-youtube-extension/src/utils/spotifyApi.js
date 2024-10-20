@@ -66,6 +66,10 @@ class SpotifyAPI {
   static async addTrackToPlaylist(playlistId, trackUri) {
     return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', { uris: [trackUri] });
   }
+
+  static async removeTrackFromPlaylist(playlistId, trackUri) {
+    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'DELETE', { tracks: [{ uri: trackUri }] });
+  }
 }
 
 export default SpotifyAPI;

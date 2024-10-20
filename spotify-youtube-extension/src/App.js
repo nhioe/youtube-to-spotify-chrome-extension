@@ -195,6 +195,8 @@ function App() {
 
     try {
       setIsLoading(true);
+      console.log("Removing track with URI:", trackUri);
+      
       await SpotifyAPI.removeTrackFromPlaylist(selectedPlaylist, trackUri);
       setError("Track removed from playlist successfully!");
       await fetchPlaylistTracks(selectedPlaylist);
