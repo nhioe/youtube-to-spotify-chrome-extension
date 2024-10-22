@@ -1,7 +1,7 @@
 /*global chrome*/
 
 const CLIENT_ID = "153a04b007bd437c96080f31c98d65d0";
-const REDIRECT_URI = "chrome-extension://gogifloppfpjlljjadjajglkjiaooihb/callback.html";
+const REDIRECT_URI = "chrome-extension://hpfafehodjbhbeedckdcokplepkkjiml/callback.html";
 
 export const getToken = async (code) => {
     try {
