@@ -1,18 +1,27 @@
 import React from 'react';
+import { FormControl, InputLabel, Select, MenuItem } from '@mui/material';
+import { styled } from '@mui/system';
+
+const StyledFormControl = styled(FormControl)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
 
 const PlaylistSelector = ({ playlists, selectedPlaylist, setSelectedPlaylist }) => (
-  <div className="playlist-selector">
-    <select 
-      value={selectedPlaylist} 
+  <StyledFormControl fullWidth>
+    <InputLabel id="playlist-select-label">Select a playlist</InputLabel>
+    <Select
+      labelId="playlist-select-label"
+      value={selectedPlaylist}
       onChange={(e) => setSelectedPlaylist(e.target.value)}
-      className="playlist-select"
+      label="Select a playlist"
     >
-      <option value="">Select a playlist</option>
+      <MenuItem value="">
+      </MenuItem>
       {playlists.map(playlist => (
-        <option key={playlist.id} value={playlist.id}>{playlist.name}</option>
+        <MenuItem key={playlist.id} value={playlist.id}>{playlist.name}</MenuItem>
       ))}
-    </select>
-  </div>
+    </Select>
+  </StyledFormControl>
 );
 
 export default PlaylistSelector;

@@ -1,31 +1,45 @@
 import React from 'react';
+import { Typography, List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Box } from '@mui/material';
 import { X } from 'lucide-react';
+import { styled } from '@mui/system';
+
+const HorizontalList = styled(List)({
+  display: 'flex',
+  flexDirection: 'row',
+  padding: 0,
+  overflowX: 'auto',
+  '& > *': {
+    flex: '0 0 auto',
+  },
+});
 
 const PlaylistPreview = ({ tracks, onRemoveTrack }) => {
   return (
-    <div className="playlist-preview">
-      <h3>Current Playlist</h3>
-      <div className="playlist-tracks">
+    <Box>
+      <Typography variant="h6" gutterBottom>Current Playlist</Typography>
+      <HorizontalList>
         {tracks.map(track => (
-          <div key={track.id} className="playlist-track-item">
-            <img src={track.album.images[2]?.url} alt={track.name} className="playlist-track-image" />
-            <div className="playlist-track-info">
-              <div className="playlist-track-name">{track.name}</div>
-              <div className="playlist-track-artist">{track.artists[0].name}</div>
-            </div>
-            <button 
-              onClick={() => {
-                console.log("Removing track:", track.name, "URI:", track.uri); // Add this line for debugging
-                onRemoveTrack(track.uri);
-              }} 
-              className="btn btn-remove"
-            >
-              <X size={12} />
-            </button>
-          </div>
+          <ListItem
+            key={track.id}
+            sx={{ width: 'auto', flexDirection: 'column', alignItems: 'center', mr: 2 }}
+          >
+            <ListItemAvatar>
+              <Avatar src={track.album.images[2]?.url} variant="square" sx={{ width: 64, height: 64 }} />
+            </ListItemAvatar>
+            <ListItemText
+              primary={track.name}
+              secondary={track.artists[0].name}
+              primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
+              secondaryTypographyProps={{ noWrap: true, variant: 'caption' }}
+              sx={{ width: 100, textAlign: 'center' }}
+            />
+            <IconButton edge="end" onClick={() => onRemoveTrack(track.uri)} size="small">
+              <X />
+            </IconButton>
+          </ListItem>
         ))}
-      </div>
-    </div>
+      </HorizontalList>
+    </Box>
   );
 };
 
