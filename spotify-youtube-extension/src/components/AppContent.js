@@ -1,7 +1,7 @@
 /*global chrome*/
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Button, CircularProgress, Snackbar, Alert } from '@mui/material';
-import { Search, Music } from 'lucide-react';
+import { Search, Music, Play } from 'lucide-react';
 import { startAuthFlow } from '../utils/spotifyAuth';
 import SpotifyAPI from '../utils/spotifyAPI';
 import Profile from './Profile';
@@ -15,6 +15,8 @@ import { Title, ErrorText, Div } from './StyledComponents';
 
 const ITEMS_PER_PAGE = 5;
 const ITEMS_TO_PRELOAD = 10;
+const PREVIEW_DELAY = 1000; // 1 second delay before playing preview
+const MESSAGE_DURATION = 3000; // 3 seconds for message display
 
 function AppContent() {
   const [profile, setProfile] = useState(null);
@@ -32,6 +34,18 @@ function AppContent() {
   const [isSearching, setIsSearching] = useState(false);
   const [confirmationDialog, setConfirmationDialog] = useState({ open: false, title: '', content: '', onConfirm: null });
   const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+  const [currentlyPlayingTrack, setCurrentlyPlayingTrack] = useState(null);
+  const [audioElement, setAudioElement] = useState(null);
+  const [previewTimer, setPreviewTimer] = useState(null);
+
+  useEffect(() => {
+    const audio = new Audio();
+    setAudioElement(audio);
+    return () => {
+      audio.pause();
+      audio.src = '';
+    };
+  }, []);
 
   useEffect(() => {
     checkLoginStatus();
@@ -45,6 +59,9 @@ function AppContent() {
 
   const showSnackbar = (message, severity = 'info') => {
     setSnackbar({ open: true, message, severity });
+    setTimeout(() => {
+      setSnackbar(prev => ({ ...prev, open: false }));
+    }, MESSAGE_DURATION);
   };
 
   const handleCloseSnackbar = (event, reason) => {
@@ -57,15 +74,14 @@ function AppContent() {
   const checkLoginStatus = async () => {
     try {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       const { accessToken } = await chrome.storage.local.get('accessToken');
       if (accessToken) {
         setIsLoggedIn(true);
         await fetchProfile();
         await fetchPlaylists();
       } else {
-        showSnackbar('Login failed. Please try again.', 'error');
+        setIsLoggedIn(false);
+        showSnackbar('Please log in to use the extension.', 'info');
       }
     } catch (error) {
       console.error('Error checking login status:', error);
@@ -265,6 +281,41 @@ function AppContent() {
     }
   };
 
+  const handlePreviewPlay = useCallback((track) => {
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.src = '';
+      
+      if (track.preview_url) {
+        audioElement.src = track.preview_url;
+        audioElement.play();
+        setCurrentlyPlayingTrack(track);
+        showSnackbar(`Now playing preview: ${track.name}`, 'info');
+      } else {
+        setCurrentlyPlayingTrack(null);
+        showSnackbar(`No preview available for: ${track.name}`, 'warning');
+      }
+    }
+  }, [audioElement]);
+
+  const handlePreviewStop = useCallback(() => {
+    if (audioElement) {
+      audioElement.pause();
+      audioElement.src = '';
+      setCurrentlyPlayingTrack(null);
+    }
+  }, [audioElement]);
+
+  const handleTrackHover = useCallback((track) => {
+    clearTimeout(previewTimer);
+    setPreviewTimer(setTimeout(() => handlePreviewPlay(track), PREVIEW_DELAY));
+  }, [handlePreviewPlay, previewTimer]);
+
+  const handleTrackLeave = useCallback(() => {
+    clearTimeout(previewTimer);
+    handlePreviewStop();
+  }, [handlePreviewStop, previewTimer]);
+
   const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
   const displayedTracks = searchResults.slice(startIndex, startIndex + ITEMS_PER_PAGE);
   const hasMore = startIndex + ITEMS_PER_PAGE < totalResults;
@@ -320,6 +371,9 @@ function AppContent() {
             <PlaylistPreview 
               tracks={selectedPlaylistTracks} 
               onRemoveTrack={handleRemoveFromPlaylist}
+              onTrackHover={handleTrackHover}
+              onTrackLeave={handleTrackLeave}
+              currentlyPlayingTrack={currentlyPlayingTrack}
             />
           )}
           {searchResults.length > 0 ? (
@@ -327,12 +381,16 @@ function AppContent() {
               tracks={displayedTracks} 
               onAddToPlaylist={handleAddToPlaylist} 
               playlistTracks={selectedPlaylistTracks}
+              onTrackHover={handleTrackHover}
+              onTrackLeave={handleTrackLeave}
+              currentlyPlayingTrack={currentlyPlayingTrack}
             />
           ) : null}
           {(totalResults > ITEMS_PER_PAGE || isSearching) && (
             <Pagination 
               currentPage={currentPage}
               hasMore={hasMore}
+              
               onPreviousPage={handlePreviousPage}
               onNextPage={handleNextPage}
               isLoading={isSearching || isLoadingMore}
@@ -350,8 +408,12 @@ function AppContent() {
         }}
         onCancel={() => setConfirmationDialog({ ...confirmationDialog, open: false })}
       />
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleCloseSnackbar}>
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
+      <Snackbar 
+        open={snackbar.open} 
+        autoHideDuration={MESSAGE_DURATION} 
+        onClose={() => setSnackbar(prev => ({ ...prev, open: false }))}
+      >
+        <Alert onClose={() => setSnackbar(prev => ({ ...prev, open: false }))} severity={snackbar.severity} sx={{ width: '100%' }}>
           {snackbar.message}
         </Alert>
       </Snackbar>
