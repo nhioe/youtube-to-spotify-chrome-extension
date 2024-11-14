@@ -6,7 +6,11 @@ const StyledFormControl = styled(FormControl)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
-const PlaylistSelector = ({ playlists, selectedPlaylist, setSelectedPlaylist }) => (
+const PlaylistSelector = ({
+  playlists,
+  selectedPlaylist,
+  setSelectedPlaylist,
+}) => (
   <StyledFormControl fullWidth>
     <InputLabel id="playlist-select-label">Select a playlist</InputLabel>
     <Select
@@ -15,10 +19,11 @@ const PlaylistSelector = ({ playlists, selectedPlaylist, setSelectedPlaylist }) 
       onChange={(e) => setSelectedPlaylist(e.target.value)}
       label="Select a playlist"
     >
-      <MenuItem value="">
-      </MenuItem>
-      {playlists.map(playlist => (
-        <MenuItem key={playlist.id} value={playlist.id}>{playlist.name}</MenuItem>
+      <MenuItem value=""></MenuItem>
+      {playlists.map((playlist) => (
+        <MenuItem key={playlist.id} value={playlist.id}>
+          {playlist.name}
+        </MenuItem>
       ))}
     </Select>
   </StyledFormControl>

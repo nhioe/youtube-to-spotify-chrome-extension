@@ -13,16 +13,20 @@ const UserInfo = styled('div')({
   alignItems: 'center',
 });
 
-const Username = styled('span')({
+const Username = styled('span')(({ theme }) => ({
   fontWeight: 'bold',
   marginRight: theme.spacing(2),
-})
+}));
 
 const Profile = ({ profile, onLogout }) => {
   return (
     <ProfileContainer p={2} bgcolor="background.paper">
       <UserInfo>
-        <Avatar src={profile.images[0]?.url} alt={profile.display_name} sx={{ mr: 2 }} />
+        <Avatar
+          src={profile.images[0]?.url}
+          alt={profile.display_name}
+          sx={{ mr: 2 }}
+        />
         <Username color="text.primary">{profile.display_name}</Username>
       </UserInfo>
       <Button variant="outlined" onClick={onLogout}>

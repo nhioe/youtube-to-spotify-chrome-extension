@@ -1,5 +1,14 @@
 import React from 'react';
-import { Typography, List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Box } from '@mui/material';
+import {
+  Typography,
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Avatar,
+  IconButton,
+  Box,
+} from '@mui/material';
 import { X, Play, Pause } from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
@@ -53,12 +62,20 @@ const TrackText = styled(ListItemText)({
   textAlign: 'center',
 });
 
-const PlaylistPreview = ({ tracks, onRemoveTrack, onTrackHover, onTrackLeave, currentlyPlayingTrack }) => {
+const PlaylistPreview = ({
+  tracks,
+  onRemoveTrack,
+  onTrackHover,
+  onTrackLeave,
+  currentlyPlayingTrack,
+}) => {
   return (
     <PreviewContainer>
-      <Typography variant="h6" gutterBottom>Current Playlist</Typography>
+      <Typography variant="h6" gutterBottom>
+        Current Playlist
+      </Typography>
       <HorizontalList>
-        {tracks.map(track => (
+        {tracks.map((track) => (
           <TrackItem
             key={track.id}
             onMouseEnter={() => onTrackHover(track)}
@@ -79,11 +96,17 @@ const PlaylistPreview = ({ tracks, onRemoveTrack, onTrackHover, onTrackLeave, cu
             <TrackText
               primary={track.name}
               secondary={track.artists[0].name}
-              primaryTypographyProps={{ noWrap: true, variant: 'body2' }}
-              secondaryTypographyProps={{ noWrap: true, variant: 'caption' }}
+              primaryTypographyProps={{
+                noWrap: true,
+                variant: 'body2',
+              }}
+              secondaryTypographyProps={{
+                noWrap: true,
+                variant: 'caption',
+              }}
             />
-            <IconButton 
-              edge="end" 
+            <IconButton
+              edge="end"
               onClick={() => onRemoveTrack(track.uri)}
               size="small"
             >

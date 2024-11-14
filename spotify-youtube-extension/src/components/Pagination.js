@@ -9,10 +9,19 @@ const PaginationContainer = styled('div')(({ theme }) => ({
   marginTop: theme.spacing(2),
 }));
 
-const Pagination = ({ currentPage, hasMore, onPreviousPage, onNextPage, isLoading }) => {
+const Pagination = ({
+  currentPage,
+  hasMore,
+  onPreviousPage,
+  onNextPage,
+  isLoading,
+}) => {
   return (
     <PaginationContainer>
-      <Button onClick={onPreviousPage} disabled={currentPage === 1 || isLoading}>
+      <Button
+        onClick={onPreviousPage}
+        disabled={currentPage === 1 || isLoading}
+      >
         Previous
       </Button>
       <Typography>Page {currentPage}</Typography>

@@ -1,5 +1,14 @@
 import React from 'react';
-import { List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Box, Typography } from '@mui/material';
+import {
+  List,
+  ListItem,
+  ListItemAvatar,
+  ListItemText,
+  Avatar,
+  IconButton,
+  Box,
+  Typography,
+} from '@mui/material';
 import { Plus, Check, Play, Pause } from 'lucide-react';
 import { styled } from '@mui/material/styles';
 
@@ -43,16 +52,27 @@ const PlayPauseOverlay = styled(Box)({
   transition: 'opacity 0.2s',
 });
 
-const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTrackLeave, currentlyPlayingTrack }) => {
+const TrackList = ({
+  tracks,
+  onAddToPlaylist,
+  playlistTracks,
+  onTrackHover,
+  onTrackLeave,
+  currentlyPlayingTrack,
+}) => {
   const isTrackInPlaylist = (track) => {
-    return playlistTracks.some(playlistTrack => playlistTrack.uri === track.uri);
+    return playlistTracks.some(
+      (playlistTrack) => playlistTrack.uri === track.uri,
+    );
   };
 
   return (
     <TrackListContainer>
-      <Typography variant="h6" gutterBottom>Search Results</Typography>
+      <Typography variant="h6" gutterBottom>
+        Search Results
+      </Typography>
       <List sx={{ width: '100%', padding: 0 }}>
-        {tracks.map(track => (
+        {tracks.map((track) => (
           <StyledListItem
             key={track.id}
             onMouseEnter={() => onTrackHover(track)}
@@ -60,7 +80,10 @@ const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTr
           >
             <ListItemContent>
               <ListItemAvatar sx={{ position: 'relative', minWidth: '56px' }}>
-                <TrackAvatar src={track.album.images[2]?.url} variant="square" />
+                <TrackAvatar
+                  src={track.album.images[2]?.url}
+                  variant="square"
+                />
                 {track.preview_url && (
                   <PlayPauseOverlay className="play-pause-overlay">
                     {currentlyPlayingTrack?.id === track.id ? (
@@ -72,22 +95,23 @@ const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTr
                 )}
               </ListItemAvatar>
               <ListItemText
-                primary={
-                  <Typography noWrap>
-                    {track.name}
-                  </Typography>
-                }
+                primary={<Typography noWrap>{track.name}</Typography>}
                 secondary={
                   <Typography noWrap sx={{ color: 'text.secondary' }}>
                     {track.artists[0].name}
                   </Typography>
                 }
-                sx={{ marginLeft: 2, marginRight: 2, flex: 1, minWidth: 0 }}
+                sx={{
+                  marginLeft: 2,
+                  marginRight: 2,
+                  flex: 1,
+                  minWidth: 0,
+                }}
               />
               <IconButton
                 edge="end"
                 onClick={() => onAddToPlaylist(track.uri)}
-                color={isTrackInPlaylist(track) ? "success" : "primary"}
+                color={isTrackInPlaylist(track) ? 'success' : 'primary'}
                 sx={{ marginLeft: 'auto' }}
               >
                 {isTrackInPlaylist(track) ? <Check /> : <Plus />}

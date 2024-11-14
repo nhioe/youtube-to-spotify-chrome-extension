@@ -69,7 +69,6 @@ const YouTubeSearchButton = styled(Button)(({ theme }) => ({
 }));
 
 const AppContent = () => {
-
   const [profile, setProfile] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -88,9 +87,15 @@ const AppContent = () => {
   const [totalResults, setTotalResults] = useState(0);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  
-  const [confirmationDialog, setConfirmationDialog] = useState({ open: false, title: '', content: '', onConfirm: null });
-  const { currentlyPlayingTrack, handlePreviewPlay, handlePreviewStop } = useAudio();
+
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    onConfirm: null,
+  });
+  const { currentlyPlayingTrack, handlePreviewPlay, handlePreviewStop } =
+    useAudio();
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -145,7 +150,7 @@ const AppContent = () => {
   const fetchPlaylistTracks = async (playlistId) => {
     try {
       const data = await spotifyService.fetchPlaylistTracks(playlistId);
-      setSelectedPlaylistTracks(data.items.map(item => item.track));
+      setSelectedPlaylistTracks(data.items.map((item) => item.track));
     } catch (error) {
       showSnackbar(MESSAGES.PLAYLIST_TRACKS_FETCH_ERROR, 'error');
     }
@@ -188,7 +193,11 @@ const AppContent = () => {
     if (!query.trim()) return;
     try {
       setIsSearching(true);
-      const data = await spotifyService.searchTracks(query, ITEMS_TO_PRELOAD, 0);
+      const data = await spotifyService.searchTracks(
+        query,
+        ITEMS_TO_PRELOAD,
+        0,
+      );
       setSearchResults(data.tracks.items);
       setTotalResults(data.tracks.total);
       setCurrentPage(1);
@@ -200,25 +209,35 @@ const AppContent = () => {
   };
 
   const handlePreviousPage = () => {
-    setCurrentPage(prevPage => Math.max(prevPage - 1, 1));
+    setCurrentPage((prevPage) => Math.max(prevPage - 1, 1));
   };
 
   const handleNextPage = async () => {
     const nextPage = currentPage + 1;
     const itemsNeeded = nextPage * ITEMS_PER_PAGE;
-    
-    if (itemsNeeded > searchResults.length && searchResults.length < totalResults) {
+
+    if (
+      itemsNeeded > searchResults.length &&
+      searchResults.length < totalResults
+    ) {
       try {
         setIsLoadingMore(true);
-        const data = await spotifyService.searchTracks(searchQuery, ITEMS_TO_PRELOAD, searchResults.length);
-        setSearchResults(prevResults => [...prevResults, ...data.tracks.items]);
+        const data = await spotifyService.searchTracks(
+          searchQuery,
+          ITEMS_TO_PRELOAD,
+          searchResults.length,
+        );
+        setSearchResults((prevResults) => [
+          ...prevResults,
+          ...data.tracks.items,
+        ]);
       } catch (error) {
         showSnackbar(MESSAGES.LOAD_MORE_ERROR, 'error');
       } finally {
         setIsLoadingMore(false);
       }
     }
-    
+
     setCurrentPage(nextPage);
   };
 
@@ -228,7 +247,9 @@ const AppContent = () => {
       return;
     }
 
-    const isTrackInPlaylist = selectedPlaylistTracks.some(track => track.uri === trackUri);
+    const isTrackInPlaylist = selectedPlaylistTracks.some(
+      (track) => track.uri === trackUri,
+    );
 
     if (isTrackInPlaylist) {
       setConfirmationDialog({
@@ -270,7 +291,10 @@ const AppContent = () => {
       onConfirm: async () => {
         try {
           setIsLoading(true);
-          await spotifyService.removeTrackFromPlaylist(selectedPlaylist, trackUri);
+          await spotifyService.removeTrackFromPlaylist(
+            selectedPlaylist,
+            trackUri,
+          );
           showSnackbar(MESSAGES.TRACK_REMOVED_SUCCESS, 'success');
           await fetchPlaylistTracks(selectedPlaylist);
         } catch (error) {
@@ -284,7 +308,10 @@ const AppContent = () => {
 
   const handleYouTubeSearch = async () => {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (tab.url.includes('youtube.com/watch')) {
         const videoTitle = tab.title.replace(' - YouTube', '');
         setSearchQuery(videoTitle);
@@ -318,9 +345,11 @@ const AppContent = () => {
         <>
           <Header>
             <Title>{profile.display_name}</Title>
-            <Button variant="outlined" onClick={handleLogout}>Logout</Button>
+            <Button variant="outlined" onClick={handleLogout}>
+              Logout
+            </Button>
           </Header>
-          
+
           <YouTubeSearchButton
             variant="contained"
             color="secondary"
@@ -329,22 +358,22 @@ const AppContent = () => {
           >
             Search YouTube Video
           </YouTubeSearchButton>
-          
-          <SearchBar 
-            searchQuery={searchQuery} 
-            setSearchQuery={setSearchQuery} 
-            onSearch={handleSearch} 
+
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onSearch={handleSearch}
           />
-          
-          <PlaylistSelector 
-            playlists={playlists} 
-            selectedPlaylist={selectedPlaylist} 
-            setSelectedPlaylist={setSelectedPlaylist} 
+
+          <PlaylistSelector
+            playlists={playlists}
+            selectedPlaylist={selectedPlaylist}
+            setSelectedPlaylist={setSelectedPlaylist}
           />
-  
+
           {selectedPlaylist && (
-            <PlaylistPreview 
-              tracks={selectedPlaylistTracks} 
+            <PlaylistPreview
+              tracks={selectedPlaylistTracks}
               onRemoveTrack={handleRemoveFromPlaylist}
               onTrackHover={handlePreviewPlay}
               onTrackLeave={handlePreviewStop}
@@ -354,17 +383,20 @@ const AppContent = () => {
 
           {searchResults.length > 0 && (
             <>
-              <TrackList 
-                tracks={searchResults.slice((currentPage - 1) * ITEMS_PER_PAGE, currentPage * ITEMS_PER_PAGE)} 
+              <TrackList
+                tracks={searchResults.slice(
+                  (currentPage - 1) * ITEMS_PER_PAGE,
+                  currentPage * ITEMS_PER_PAGE,
+                )}
                 onAddToPlaylist={handleAddToPlaylist}
                 playlistTracks={selectedPlaylistTracks}
                 onTrackHover={handlePreviewPlay}
                 onTrackLeave={handlePreviewStop}
                 currentlyPlayingTrack={currentlyPlayingTrack}
               />
-              <Pagination 
+              <Pagination
                 currentPage={currentPage}
-                hasMore={(currentPage * ITEMS_PER_PAGE) < totalResults}
+                hasMore={currentPage * ITEMS_PER_PAGE < totalResults}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
                 isLoading={isSearching || isLoadingMore}
@@ -373,19 +405,27 @@ const AppContent = () => {
           )}
         </>
       )}
-      
+
       <ConfirmationDialog
         open={confirmationDialog.open}
         title={confirmationDialog.title}
         content={confirmationDialog.content}
         onConfirm={() => {
           confirmationDialog.onConfirm();
-          setConfirmationDialog({ ...confirmationDialog, open: false });
+          setConfirmationDialog({
+            ...confirmationDialog,
+            open: false,
+          });
         }}
-        onCancel={() => setConfirmationDialog({ ...confirmationDialog, open: false })}
+        onCancel={() =>
+          setConfirmationDialog({
+            ...confirmationDialog,
+            open: false,
+          })
+        }
       />
     </AppContainer>
   );
-}
+};
 
 export default AppContent;

@@ -36,7 +36,10 @@ class SpotifyAPI {
           await this.refreshAccessToken();
           return this.makeRequest(endpoint, method, body);
         }
-        throw new SpotifyAPIError(`API request failed: ${response.statusText}`, response.status);
+        throw new SpotifyAPIError(
+          `API request failed: ${response.statusText}`,
+          response.status,
+        );
       }
 
       return response.json();
@@ -48,9 +51,14 @@ class SpotifyAPI {
 
   static async refreshAccessToken() {
     try {
-      const response = await chrome.runtime.sendMessage({ action: 'refreshToken' });
+      const response = await chrome.runtime.sendMessage({
+        action: 'refreshToken',
+      });
       if (!response || !response.success) {
-        throw new SpotifyAPIError(response ? response.error : 'Failed to refresh token', 401);
+        throw new SpotifyAPIError(
+          response ? response.error : 'Failed to refresh token',
+          401,
+        );
       }
       return response.token;
     } catch (error) {
@@ -70,17 +78,23 @@ class SpotifyAPI {
   static async getPlaylistTracks(playlistId) {
     return this.makeRequest(`/playlists/${playlistId}/tracks`);
   }
-  
+
   static async searchTracks(query, limit = 20, offset = 0) {
-    return this.makeRequest(`/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&offset=${offset}`);
+    return this.makeRequest(
+      `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&offset=${offset}`,
+    );
   }
 
   static async addTrackToPlaylist(playlistId, trackUri) {
-    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', { uris: [trackUri] });
+    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', {
+      uris: [trackUri],
+    });
   }
 
   static async removeTrackFromPlaylist(playlistId, trackUri) {
-    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'DELETE', { tracks: [{ uri: trackUri }] });
+    return this.makeRequest(`/playlists/${playlistId}/tracks`, 'DELETE', {
+      tracks: [{ uri: trackUri }],
+    });
   }
 }
 

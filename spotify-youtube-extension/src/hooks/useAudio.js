@@ -10,7 +10,7 @@ export const useAudio = () => {
 
   const handlePreviewPlay = (track) => {
     if (hoverTimeoutRef.current) {
-      clearTimeout(hoverTimeoutRef.current); 
+      clearTimeout(hoverTimeoutRef.current);
     }
     // Delay
     hoverTimeoutRef.current = setTimeout(() => {
@@ -41,6 +41,6 @@ export const useAudio = () => {
   return {
     currentlyPlayingTrack,
     handlePreviewPlay,
-    handlePreviewStop
+    handlePreviewStop,
   };
 };
