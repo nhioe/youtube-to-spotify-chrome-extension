@@ -68,6 +68,19 @@ const YouTubeSearchButton = styled(Button)(({ theme }) => ({
   marginBottom: theme.spacing(2),
 }));
 
+const TranslucentLoading = styled('div')({
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 9999,
+});
+
 const AppContent = () => {
   const [profile, setProfile] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
@@ -81,11 +94,12 @@ const AppContent = () => {
   const [playlists, setPlaylists] = useState([]);
   const [selectedPlaylist, setSelectedPlaylist] = useState(''); // playlist name
   const [selectedPlaylistTracks, setSelectedPlaylistTracks] = useState([]); // playlist tracks
+  const [isUpdatingPlaylist, setIsUpdatingPlaylist] = useState(false);
 
   // search results
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingSearch, setisLoadingSearch] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
 
   const [confirmationDialog, setConfirmationDialog] = useState({
@@ -94,8 +108,10 @@ const AppContent = () => {
     content: '',
     onConfirm: null,
   });
+
   const { currentlyPlayingTrack, handlePreviewPlay, handlePreviewStop } =
     useAudio();
+
   const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
@@ -107,6 +123,8 @@ const AppContent = () => {
       fetchPlaylistTracks(selectedPlaylist);
     }
   }, [selectedPlaylist]);
+
+  /* LOGIN ACTIONS */
 
   const checkLoginStatus = async () => {
     try {
@@ -125,34 +143,6 @@ const AppContent = () => {
       showSnackbar(MESSAGES.LOGIN_STATUS_ERROR, 'error');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchProfile = async () => {
-    try {
-      const data = await spotifyService.fetchProfile();
-      setProfile(data);
-    } catch (error) {
-      showSnackbar(MESSAGES.PROFILE_FETCH_ERROR, 'error');
-      setIsLoggedIn(false);
-    }
-  };
-
-  const fetchPlaylists = async () => {
-    try {
-      const data = await spotifyService.fetchPlaylists();
-      setPlaylists(data.items);
-    } catch (error) {
-      showSnackbar(MESSAGES.PLAYLISTS_FETCH_ERROR, 'error');
-    }
-  };
-
-  const fetchPlaylistTracks = async (playlistId) => {
-    try {
-      const data = await spotifyService.fetchPlaylistTracks(playlistId);
-      setSelectedPlaylistTracks(data.items.map((item) => item.track));
-    } catch (error) {
-      showSnackbar(MESSAGES.PLAYLIST_TRACKS_FETCH_ERROR, 'error');
     }
   };
 
@@ -189,6 +179,38 @@ const AppContent = () => {
     });
   };
 
+  /* FETCH DATA */
+
+  const fetchProfile = async () => {
+    try {
+      const data = await spotifyService.fetchProfile();
+      setProfile(data);
+    } catch (error) {
+      showSnackbar(MESSAGES.PROFILE_FETCH_ERROR, 'error');
+      setIsLoggedIn(false);
+    }
+  };
+
+  const fetchPlaylists = async () => {
+    try {
+      const data = await spotifyService.fetchPlaylists();
+      setPlaylists(data.items);
+    } catch (error) {
+      showSnackbar(MESSAGES.PLAYLISTS_FETCH_ERROR, 'error');
+    }
+  };
+
+  const fetchPlaylistTracks = async (playlistId) => {
+    try {
+      const data = await spotifyService.fetchPlaylistTracks(playlistId);
+      setSelectedPlaylistTracks(data.items.map((item) => item.track));
+    } catch (error) {
+      showSnackbar(MESSAGES.PLAYLIST_TRACKS_FETCH_ERROR, 'error');
+    }
+  };
+
+  /* SEARCH & NAV */
+
   const handleSearch = async (query = searchQuery) => {
     if (!query.trim()) return;
     try {
@@ -208,6 +230,25 @@ const AppContent = () => {
     }
   };
 
+  const handleYouTubeSearch = async () => {
+    try {
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
+      if (tab.url.includes('youtube.com/watch')) {
+        const videoTitle = tab.title.replace(' - YouTube', '');
+        setSearchQuery(videoTitle);
+        await handleSearch(videoTitle);
+      } else {
+        showSnackbar(MESSAGES.YOUTUBE_NAVIGATION_WARNING, 'warning');
+      }
+    } catch (error) {
+      console.error('Failed to get YouTube video title:', error);
+      showSnackbar(MESSAGES.YOUTUBE_TITLE_ERROR, 'error');
+    }
+  };
+
   const handlePreviousPage = () => {
     setCurrentPage((prevPage) => Math.max(prevPage - 1, 1));
   };
@@ -221,7 +262,7 @@ const AppContent = () => {
       searchResults.length < totalResults
     ) {
       try {
-        setIsLoadingMore(true);
+        setisLoadingSearch(true);
         const data = await spotifyService.searchTracks(
           searchQuery,
           ITEMS_TO_PRELOAD,
@@ -234,12 +275,14 @@ const AppContent = () => {
       } catch (error) {
         showSnackbar(MESSAGES.LOAD_MORE_ERROR, 'error');
       } finally {
-        setIsLoadingMore(false);
+        setisLoadingSearch(false);
       }
     }
 
     setCurrentPage(nextPage);
   };
+
+  /* PLAYLIST ACTIONS */
 
   const handleAddToPlaylist = async (trackUri) => {
     if (!selectedPlaylist) {
@@ -267,14 +310,14 @@ const AppContent = () => {
 
   const addTrackToPlaylist = async (trackUri) => {
     try {
-      setIsLoading(true);
+      setIsUpdatingPlaylist(true);
       await spotifyService.addTrackToPlaylist(selectedPlaylist, trackUri);
       showSnackbar(MESSAGES.TRACK_ADDED_SUCCESS, 'success');
       await fetchPlaylistTracks(selectedPlaylist);
     } catch (error) {
       showSnackbar(MESSAGES.TRACK_ADD_ERROR, 'error');
     } finally {
-      setIsLoading(false);
+      setIsUpdatingPlaylist(false);
     }
   };
 
@@ -290,7 +333,7 @@ const AppContent = () => {
       content: MESSAGES.REMOVE_TRACK_CONFIRMATION,
       onConfirm: async () => {
         try {
-          setIsLoading(true);
+          setIsUpdatingPlaylist(true);
           await spotifyService.removeTrackFromPlaylist(
             selectedPlaylist,
             trackUri,
@@ -300,29 +343,10 @@ const AppContent = () => {
         } catch (error) {
           showSnackbar(MESSAGES.TRACK_REMOVE_ERROR, 'error');
         } finally {
-          setIsLoading(false);
+          setIsUpdatingPlaylist(false);
         }
       },
     });
-  };
-
-  const handleYouTubeSearch = async () => {
-    try {
-      const [tab] = await chrome.tabs.query({
-        active: true,
-        currentWindow: true,
-      });
-      if (tab.url.includes('youtube.com/watch')) {
-        const videoTitle = tab.title.replace(' - YouTube', '');
-        setSearchQuery(videoTitle);
-        await handleSearch(videoTitle);
-      } else {
-        showSnackbar(MESSAGES.YOUTUBE_NAVIGATION_WARNING, 'warning');
-      }
-    } catch (error) {
-      console.error('Failed to get YouTube video title:', error);
-      showSnackbar(MESSAGES.YOUTUBE_TITLE_ERROR, 'error');
-    }
   };
 
   if (isLoading) {
@@ -399,7 +423,7 @@ const AppContent = () => {
                 hasMore={currentPage * ITEMS_PER_PAGE < totalResults}
                 onPreviousPage={handlePreviousPage}
                 onNextPage={handleNextPage}
-                isLoading={isSearching || isLoadingMore}
+                isLoading={isSearching || isLoadingSearch}
               />
             </>
           )}
@@ -424,6 +448,11 @@ const AppContent = () => {
           })
         }
       />
+      {(isUpdatingPlaylist || isLoadingSearch) && (
+        <TranslucentLoading>
+          <CircularProgress />
+        </TranslucentLoading>
+      )}
     </AppContainer>
   );
 };
