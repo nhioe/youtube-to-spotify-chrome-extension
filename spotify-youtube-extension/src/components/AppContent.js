@@ -1,37 +1,118 @@
 /*global chrome*/
 import React, { useState, useEffect } from 'react';
-import { Button, CircularProgress, Snackbar, Alert } from '@mui/material';
-import { Search, Music } from 'lucide-react';
-import { startAuthFlow } from '../utils/spotifyAuth';
-import SpotifyAPI from '../utils/spotifyAPI';
-import Profile from './Profile';
+import { CircularProgress, Button } from '@mui/material';
+import { Search } from 'lucide-react';
+import { styled } from '@mui/material/styles';
+import { useAudio } from '../hooks/useAudio';
+import { useSnackbar } from '../contexts/SnackbarContext';
+import * as spotifyService from '../services/spotifyService';
+import { ITEMS_PER_PAGE, ITEMS_TO_PRELOAD } from '../constants/values';
+import { MESSAGES, DIALOG_TITLES } from '../constants/messages';
+import LoginView from './LoginView';
 import SearchBar from './SearchBar';
-import PlaylistSelector from './PlaylistSelector';
 import TrackList from './TrackList';
 import Pagination from './Pagination';
+import PlaylistSelector from './PlaylistSelector';
 import PlaylistPreview from './PlaylistPreview';
 import ConfirmationDialog from './ConfirmationDialog';
-import { Title, ErrorText, Div } from './StyledComponents';
+import { startAuthFlow } from '../utils/spotifyAuth';
 
-const ITEMS_PER_PAGE = 5;
-const ITEMS_TO_PRELOAD = 10;
+const AppContainer = styled('div')(({ theme }) => ({
+  width: '400px',
+  height: '600px',
+  overflowY: 'auto',
+  padding: theme.spacing(2),
+  boxSizing: 'border-box',
+  '&::-webkit-scrollbar': {
+    width: '10px',
+  },
+  '&::-webkit-scrollbar-track': {
+    background: theme.palette.background.paper,
+  },
+  '&::-webkit-scrollbar-thumb': {
+    background: '#888',
+    borderRadius: '5px',
+  },
+  '&::-webkit-scrollbar-thumb:hover': {
+    background: '#555',
+  },
+}));
 
-function AppContent() {
+const LoadingContainer = styled('div')({
+  display: 'flex',
+  flexDirection: 'column',
+  alignItems: 'center',
+  justifyContent: 'center',
+  height: '100%',
+});
+
+const Title = styled('h1')(({ theme }) => ({
+  color: theme.palette.primary.main,
+  fontSize: '24px',
+  marginBottom: theme.spacing(2),
+}));
+
+const ErrorText = styled('p')(({ theme }) => ({
+  color: theme.palette.error.main,
+  marginBottom: theme.spacing(1),
+}));
+
+const Header = styled('div')({
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '16px',
+});
+
+const YouTubeSearchButton = styled(Button)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
+
+const TranslucentLoading = styled('div')({
+  position: 'fixed',
+  top: 0,
+  left: 0,
+  right: 0,
+  bottom: 0,
+  backgroundColor: 'rgba(0, 0, 0, 0.7)',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  zIndex: 9999,
+});
+
+const AppContent = () => {
   const [profile, setProfile] = useState(null);
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+
+  // search
   const [searchQuery, setSearchQuery] = useState('');
   const [searchResults, setSearchResults] = useState([]);
+
+  // playlists
   const [playlists, setPlaylists] = useState([]);
-  const [selectedPlaylist, setSelectedPlaylist] = useState('');
-  const [selectedPlaylistTracks, setSelectedPlaylistTracks] = useState([]);
-  const [error, setError] = useState(null);
+  const [selectedPlaylist, setSelectedPlaylist] = useState(''); // playlist name
+  const [selectedPlaylistTracks, setSelectedPlaylistTracks] = useState([]); // playlist tracks
+  const [isUpdatingPlaylist, setIsUpdatingPlaylist] = useState(false);
+
+  // search results
   const [currentPage, setCurrentPage] = useState(1);
   const [totalResults, setTotalResults] = useState(0);
-  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  const [isLoadingSearch, setisLoadingSearch] = useState(false);
   const [isSearching, setIsSearching] = useState(false);
-  const [confirmationDialog, setConfirmationDialog] = useState({ open: false, title: '', content: '', onConfirm: null });
-  const [snackbar, setSnackbar] = useState({ open: false, message: '', severity: 'info' });
+
+  const [confirmationDialog, setConfirmationDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    onConfirm: null,
+  });
+
+  const { currentlyPlayingTrack, handlePreviewPlay, handlePreviewStop } =
+    useAudio();
+
+  const { showSnackbar } = useSnackbar();
 
   useEffect(() => {
     checkLoginStatus();
@@ -43,66 +124,25 @@ function AppContent() {
     }
   }, [selectedPlaylist]);
 
-  const showSnackbar = (message, severity = 'info') => {
-    setSnackbar({ open: true, message, severity });
-  };
-
-  const handleCloseSnackbar = (event, reason) => {
-    if (reason === 'clickaway') {
-      return;
-    }
-    setSnackbar({ ...snackbar, open: false });
-  };
+  /* LOGIN ACTIONS */
 
   const checkLoginStatus = async () => {
     try {
       setIsLoading(true);
-      await new Promise(resolve => setTimeout(resolve, 1500));
-
       const { accessToken } = await chrome.storage.local.get('accessToken');
       if (accessToken) {
         setIsLoggedIn(true);
         await fetchProfile();
         await fetchPlaylists();
       } else {
-        showSnackbar('Login failed. Please try again.', 'error');
+        setIsLoggedIn(false);
+        showSnackbar(MESSAGES.LOGIN_REQUIRED, 'info');
       }
     } catch (error) {
       console.error('Error checking login status:', error);
-      showSnackbar('Failed to check login status. Please try again.', 'error');
+      showSnackbar(MESSAGES.LOGIN_STATUS_ERROR, 'error');
     } finally {
       setIsLoading(false);
-    }
-  };
-
-  const fetchProfile = async () => {
-    try {
-      const data = await SpotifyAPI.fetchProfile();
-      setProfile(data);
-    } catch (error) {
-      console.error('Failed to fetch profile:', error);
-      showSnackbar('Failed to fetch profile. Please try logging in again.', 'error');
-      setIsLoggedIn(false);
-    }
-  };
-
-  const fetchPlaylists = async () => {
-    try {
-      const data = await SpotifyAPI.getUserPlaylists();
-      setPlaylists(data.items);
-    } catch (error) {
-      console.error('Failed to fetch playlists:', error);
-      showSnackbar('Failed to fetch playlists. Please try again.', 'error');
-    }
-  };
-
-  const fetchPlaylistTracks = async (playlistId) => {
-    try {
-      const data = await SpotifyAPI.getPlaylistTracks(playlistId);
-      setSelectedPlaylistTracks(data.items.map(item => item.track));
-    } catch (error) {
-      console.error('Failed to fetch playlist tracks:', error);
-      showSnackbar('Failed to fetch playlist tracks. Please try again.', 'error');
     }
   };
 
@@ -113,17 +153,17 @@ function AppContent() {
       await checkLoginStatus();
     } catch (error) {
       console.error('Failed to sign in:', error);
-      showSnackbar('Failed to sign in. Please try again.', 'error');
+      showSnackbar(MESSAGES.SIGN_IN_ERROR, 'error');
     } finally {
       setIsLoading(false);
     }
   };
 
-  const handleLogout = async () => {
+  const handleLogout = () => {
     setConfirmationDialog({
       open: true,
-      title: 'Confirm Logout',
-      content: 'Are you sure you want to log out?',
+      title: DIALOG_TITLES.LOGOUT_CONFIRMATION,
+      content: MESSAGES.LOGOUT_CONFIRMATION,
       onConfirm: async () => {
         setIsLoading(true);
         await chrome.storage.local.clear();
@@ -132,231 +172,289 @@ function AppContent() {
         setPlaylists([]);
         setSelectedPlaylist('');
         setSearchResults([]);
-        setError(null);
         console.log('Logged out and Chrome storage cleared.');
         setIsLoading(false);
-        showSnackbar('Logged out successfully', 'success');
+        showSnackbar(MESSAGES.LOGOUT_SUCCESS, 'success');
       },
     });
   };
+
+  /* FETCH DATA */
+
+  const fetchProfile = async () => {
+    try {
+      const data = await spotifyService.fetchProfile();
+      setProfile(data);
+    } catch (error) {
+      showSnackbar(MESSAGES.PROFILE_FETCH_ERROR, 'error');
+      setIsLoggedIn(false);
+    }
+  };
+
+  const fetchPlaylists = async () => {
+    try {
+      const data = await spotifyService.fetchPlaylists();
+      setPlaylists(data.items);
+    } catch (error) {
+      showSnackbar(MESSAGES.PLAYLISTS_FETCH_ERROR, 'error');
+    }
+  };
+
+  const fetchPlaylistTracks = async (playlistId) => {
+    try {
+      const data = await spotifyService.fetchPlaylistTracks(playlistId);
+      setSelectedPlaylistTracks(data.items.map((item) => item.track));
+    } catch (error) {
+      showSnackbar(MESSAGES.PLAYLIST_TRACKS_FETCH_ERROR, 'error');
+    }
+  };
+
+  /* SEARCH & NAV */
 
   const handleSearch = async (query = searchQuery) => {
     if (!query.trim()) return;
     try {
       setIsSearching(true);
-      const data = await SpotifyAPI.searchTracks(query, ITEMS_TO_PRELOAD, 0);
+      const data = await spotifyService.searchTracks(
+        query,
+        ITEMS_TO_PRELOAD,
+        0,
+      );
       setSearchResults(data.tracks.items);
       setTotalResults(data.tracks.total);
       setCurrentPage(1);
     } catch (error) {
-      console.error('Failed to search tracks:', error);
-      showSnackbar('Failed to search tracks. Please try again.', 'error');
+      showSnackbar(MESSAGES.SEARCH_ERROR, 'error');
     } finally {
       setIsSearching(false);
     }
   };
 
-  const handlePreviousPage = () => {
-    setCurrentPage(prevPage => Math.max(prevPage - 1, 1));
-  };
-
-  const handleNextPage = async () => {
-    const nextPage = currentPage + 1;
-    const itemsNeeded = nextPage * ITEMS_PER_PAGE;
-    
-    if (itemsNeeded > searchResults.length && searchResults.length < totalResults) {
-      try {
-        setIsLoadingMore(true);
-        const data = await SpotifyAPI.searchTracks(searchQuery, ITEMS_TO_PRELOAD, searchResults.length);
-        setSearchResults(prevResults => [...prevResults, ...data.tracks.items]);
-      } catch (error) {
-        console.error('Failed to load more tracks:', error);
-        showSnackbar('Failed to load more tracks. Please try again.', 'error');
-      } finally {
-        setIsLoadingMore(false);
-      }
-    }
-    
-    setCurrentPage(nextPage);
-  };
-
-  const handleAddToPlaylist = async (trackUri) => {
-    if (!selectedPlaylist) {
-      showSnackbar('Please select a playlist first.', 'warning');
-      return;
-    }
-
-    const isTrackInPlaylist = selectedPlaylistTracks.some(track => track.uri === trackUri);
-
-    if (isTrackInPlaylist) {
-      setConfirmationDialog({
-        open: true,
-        title: 'Confirm Add Track',
-        content: 'This track is already in the playlist. Are you sure you want to add it again?',
-        onConfirm: async () => {
-          try {
-            setIsLoading(true);
-            await SpotifyAPI.addTrackToPlaylist(selectedPlaylist, trackUri);
-            showSnackbar('Track added to playlist successfully!', 'success');
-            await fetchPlaylistTracks(selectedPlaylist);
-          } catch (error) {
-            console.error('Failed to add track to playlist:', error);
-            showSnackbar('Failed to add track to playlist. Please try again.', 'error');
-          } finally {
-            setIsLoading(false);
-          }
-        },
-      });
-    } else {
-      try {
-        setIsLoading(true);
-        await SpotifyAPI.addTrackToPlaylist(selectedPlaylist, trackUri);
-        showSnackbar('Track added to playlist successfully!', 'success');
-        await fetchPlaylistTracks(selectedPlaylist);
-      } catch (error) {
-        console.error('Failed to add track to playlist:', error);
-        showSnackbar('Failed to add track to playlist. Please try again.', 'error');
-      } finally {
-        setIsLoading(false);
-      }
-    }
-  };
-
-  const handleRemoveFromPlaylist = async (trackUri) => {
-    if (!selectedPlaylist) {
-      showSnackbar('No playlist selected.', 'warning');
-      return;
-    }
-
-    setConfirmationDialog({
-      open: true,
-      title: 'Confirm Remove Track',
-      content: 'Are you sure you want to remove this track from the playlist?',
-      onConfirm: async () => {
-        try {
-          setIsLoading(true);
-          console.log('Removing track with URI:', trackUri);
-          await SpotifyAPI.removeTrackFromPlaylist(selectedPlaylist, trackUri);
-          showSnackbar('Track removed from playlist successfully!', 'success');
-          await fetchPlaylistTracks(selectedPlaylist);
-        } catch (error) {
-          console.error('Failed to remove track from playlist:', error);
-          showSnackbar('Failed to remove track from playlist. Please try again.', 'error');
-        } finally {
-          setIsLoading(false);
-        }
-      },
-    });
-  };
-
   const handleYouTubeSearch = async () => {
     try {
-      const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+      const [tab] = await chrome.tabs.query({
+        active: true,
+        currentWindow: true,
+      });
       if (tab.url.includes('youtube.com/watch')) {
         const videoTitle = tab.title.replace(' - YouTube', '');
         setSearchQuery(videoTitle);
         await handleSearch(videoTitle);
       } else {
-        showSnackbar('Please navigate to a YouTube video page.', 'warning');
+        showSnackbar(MESSAGES.YOUTUBE_NAVIGATION_WARNING, 'warning');
       }
     } catch (error) {
       console.error('Failed to get YouTube video title:', error);
-      showSnackbar('Failed to get YouTube video title. Please try again.', 'error');
+      showSnackbar(MESSAGES.YOUTUBE_TITLE_ERROR, 'error');
     }
   };
 
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const displayedTracks = searchResults.slice(startIndex, startIndex + ITEMS_PER_PAGE);
-  const hasMore = startIndex + ITEMS_PER_PAGE < totalResults;
+  const handlePreviousPage = () => {
+    setCurrentPage((prevPage) => Math.max(prevPage - 1, 1));
+  };
+
+  const handleNextPage = async () => {
+    const nextPage = currentPage + 1;
+    const itemsNeeded = nextPage * ITEMS_PER_PAGE;
+
+    if (
+      itemsNeeded > searchResults.length &&
+      searchResults.length < totalResults
+    ) {
+      try {
+        setisLoadingSearch(true);
+        const data = await spotifyService.searchTracks(
+          searchQuery,
+          ITEMS_TO_PRELOAD,
+          searchResults.length,
+        );
+        setSearchResults((prevResults) => [
+          ...prevResults,
+          ...data.tracks.items,
+        ]);
+      } catch (error) {
+        showSnackbar(MESSAGES.LOAD_MORE_ERROR, 'error');
+      } finally {
+        setisLoadingSearch(false);
+      }
+    }
+
+    setCurrentPage(nextPage);
+  };
+
+  /* PLAYLIST ACTIONS */
+
+  const handleAddToPlaylist = async (trackUri) => {
+    if (!selectedPlaylist) {
+      showSnackbar(MESSAGES.SELECT_PLAYLIST_WARNING, 'warning');
+      return;
+    }
+
+    const isTrackInPlaylist = selectedPlaylistTracks.some(
+      (track) => track.uri === trackUri,
+    );
+
+    if (isTrackInPlaylist) {
+      setConfirmationDialog({
+        open: true,
+        title: DIALOG_TITLES.ADD_TRACK_CONFIRMATION,
+        content: MESSAGES.TRACK_ALREADY_IN_PLAYLIST,
+        onConfirm: async () => {
+          await addTrackToPlaylist(trackUri);
+        },
+      });
+    } else {
+      await addTrackToPlaylist(trackUri);
+    }
+  };
+
+  const addTrackToPlaylist = async (trackUri) => {
+    try {
+      setIsUpdatingPlaylist(true);
+      await spotifyService.addTrackToPlaylist(selectedPlaylist, trackUri);
+      showSnackbar(MESSAGES.TRACK_ADDED_SUCCESS, 'success');
+      await fetchPlaylistTracks(selectedPlaylist);
+    } catch (error) {
+      showSnackbar(MESSAGES.TRACK_ADD_ERROR, 'error');
+    } finally {
+      setIsUpdatingPlaylist(false);
+    }
+  };
+
+  const handleRemoveFromPlaylist = async (trackUri) => {
+    if (!selectedPlaylist) {
+      showSnackbar(MESSAGES.NO_PLAYLIST_SELECTED, 'warning');
+      return;
+    }
+
+    setConfirmationDialog({
+      open: true,
+      title: DIALOG_TITLES.REMOVE_TRACK_CONFIRMATION,
+      content: MESSAGES.REMOVE_TRACK_CONFIRMATION,
+      onConfirm: async () => {
+        try {
+          setIsUpdatingPlaylist(true);
+          await spotifyService.removeTrackFromPlaylist(
+            selectedPlaylist,
+            trackUri,
+          );
+          showSnackbar(MESSAGES.TRACK_REMOVED_SUCCESS, 'success');
+          await fetchPlaylistTracks(selectedPlaylist);
+        } catch (error) {
+          showSnackbar(MESSAGES.TRACK_REMOVE_ERROR, 'error');
+        } finally {
+          setIsUpdatingPlaylist(false);
+        }
+      },
+    });
+  };
 
   if (isLoading) {
     return (
-      <Div sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-        <Title variant="h1">Spotify YouTube Extension</Title>
-        <CircularProgress />
-        <ErrorText>Loading...</ErrorText>
-      </Div>
+      <AppContainer>
+        <LoadingContainer>
+          <Title>Spotify YouTube Extension</Title>
+          <CircularProgress />
+          <ErrorText>Loading...</ErrorText>
+        </LoadingContainer>
+      </AppContainer>
     );
   }
 
   return (
-    <>
+    <AppContainer>
       {!isLoggedIn ? (
-        <Div sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', height: '100%' }}>
-          <Title variant="h1">Spotify YouTube Extension</Title>
-          <Button
-            variant="contained"
-            color="primary"
-            onClick={handleSignIn}
-            startIcon={<Music />}
-            sx={{ m: 1 }}
-          >
-            Sign in with Spotify
-          </Button>
-        </Div>
+        <LoginView onSignIn={handleSignIn} />
       ) : (
-        <Div sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
-          <Profile profile={profile} onLogout={handleLogout} />
-          <Button
+        <>
+          <Header>
+            <Title>{profile.display_name}</Title>
+            <Button variant="outlined" onClick={handleLogout}>
+              Logout
+            </Button>
+          </Header>
+
+          <YouTubeSearchButton
             variant="contained"
             color="secondary"
             onClick={handleYouTubeSearch}
             startIcon={<Search />}
-            sx={{ m: 1 }}
           >
             Search YouTube Video
-          </Button>
-          <SearchBar 
-            searchQuery={searchQuery} 
-            setSearchQuery={setSearchQuery} 
-            onSearch={() => handleSearch()} 
+          </YouTubeSearchButton>
+
+          <SearchBar
+            searchQuery={searchQuery}
+            setSearchQuery={setSearchQuery}
+            onSearch={handleSearch}
           />
-          <PlaylistSelector 
-            playlists={playlists} 
-            selectedPlaylist={selectedPlaylist} 
-            setSelectedPlaylist={setSelectedPlaylist} 
+
+          <PlaylistSelector
+            playlists={playlists}
+            selectedPlaylist={selectedPlaylist}
+            setSelectedPlaylist={setSelectedPlaylist}
           />
+
           {selectedPlaylist && (
-            <PlaylistPreview 
-              tracks={selectedPlaylistTracks} 
+            <PlaylistPreview
+              tracks={selectedPlaylistTracks}
               onRemoveTrack={handleRemoveFromPlaylist}
+              onTrackHover={handlePreviewPlay}
+              onTrackLeave={handlePreviewStop}
+              currentlyPlayingTrack={currentlyPlayingTrack}
             />
           )}
-          {searchResults.length > 0 ? (
-            <TrackList 
-              tracks={displayedTracks} 
-              onAddToPlaylist={handleAddToPlaylist} 
-              playlistTracks={selectedPlaylistTracks}
-            />
-          ) : null}
-          {(totalResults > ITEMS_PER_PAGE || isSearching) && (
-            <Pagination 
-              currentPage={currentPage}
-              hasMore={hasMore}
-              onPreviousPage={handlePreviousPage}
-              onNextPage={handleNextPage}
-              isLoading={isSearching || isLoadingMore}
-            />
+
+          {searchResults.length > 0 && (
+            <>
+              <TrackList
+                tracks={searchResults.slice(
+                  (currentPage - 1) * ITEMS_PER_PAGE,
+                  currentPage * ITEMS_PER_PAGE,
+                )}
+                onAddToPlaylist={handleAddToPlaylist}
+                playlistTracks={selectedPlaylistTracks}
+                onTrackHover={handlePreviewPlay}
+                onTrackLeave={handlePreviewStop}
+                currentlyPlayingTrack={currentlyPlayingTrack}
+              />
+              <Pagination
+                currentPage={currentPage}
+                hasMore={currentPage * ITEMS_PER_PAGE < totalResults}
+                onPreviousPage={handlePreviousPage}
+                onNextPage={handleNextPage}
+                isLoading={isSearching || isLoadingSearch}
+              />
+            </>
           )}
-        </Div>
+        </>
       )}
+
       <ConfirmationDialog
         open={confirmationDialog.open}
         title={confirmationDialog.title}
         content={confirmationDialog.content}
         onConfirm={() => {
           confirmationDialog.onConfirm();
-          setConfirmationDialog({ ...confirmationDialog, open: false });
+          setConfirmationDialog({
+            ...confirmationDialog,
+            open: false,
+          });
         }}
-        onCancel={() => setConfirmationDialog({ ...confirmationDialog, open: false })}
+        onCancel={() =>
+          setConfirmationDialog({
+            ...confirmationDialog,
+            open: false,
+          })
+        }
       />
-      <Snackbar open={snackbar.open} autoHideDuration={6000} onClose={handleCloseSnackbar}>
-        <Alert onClose={handleCloseSnackbar} severity={snackbar.severity} sx={{ width: '100%' }}>
-          {snackbar.message}
-        </Alert>
-      </Snackbar>
-    </>
+      {(isUpdatingPlaylist || isLoadingSearch) && (
+        <TranslucentLoading>
+          <CircularProgress />
+        </TranslucentLoading>
+      )}
+    </AppContainer>
   );
-}
+};
 
 export default AppContent;

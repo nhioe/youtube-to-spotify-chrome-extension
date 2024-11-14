@@ -3,14 +3,15 @@ import { ThemeProvider } from '@mui/material/styles';
 import CssBaseline from '@mui/material/CssBaseline';
 import theme from './theme/theme';
 import AppContent from './components/AppContent';
-import { AppContainer } from './components/StyledComponents';
+import { SnackbarProvider } from './contexts/SnackbarContext';
 
 function App() {
-  return (<ThemeProvider theme={theme}>
+  return (
+    <ThemeProvider theme={theme}>
       <CssBaseline />
-        <AppContainer>
-          <AppContent />
-        </AppContainer>
+      <SnackbarProvider>
+        <AppContent />
+      </SnackbarProvider>
     </ThemeProvider>
   );
 }
