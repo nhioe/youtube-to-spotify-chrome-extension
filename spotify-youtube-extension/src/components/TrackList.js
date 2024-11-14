@@ -1,6 +1,47 @@
 import React from 'react';
 import { List, ListItem, ListItemAvatar, ListItemText, Avatar, IconButton, Box, Typography } from '@mui/material';
 import { Plus, Check, Play, Pause } from 'lucide-react';
+import { styled } from '@mui/material/styles';
+
+const TrackListContainer = styled(Box)(({ theme }) => ({
+  marginBottom: theme.spacing(2),
+}));
+
+const StyledListItem = styled(ListItem)(({ theme }) => ({
+  padding: theme.spacing(1, 2),
+  '&:hover': {
+    backgroundColor: theme.palette.action.hover,
+  },
+  '&:hover .play-pause-overlay': {
+    opacity: 1,
+  },
+}));
+
+const ListItemContent = styled(Box)({
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+});
+
+const TrackAvatar = styled(Avatar)({
+  width: 56,
+  height: 56,
+  position: 'relative',
+});
+
+const PlayPauseOverlay = styled(Box)({
+  position: 'absolute',
+  top: 0,
+  left: 0,
+  width: '100%',
+  height: '100%',
+  display: 'flex',
+  alignItems: 'center',
+  justifyContent: 'center',
+  background: 'rgba(0, 0, 0, 0.5)',
+  opacity: 0,
+  transition: 'opacity 0.2s',
+});
 
 const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTrackLeave, currentlyPlayingTrack }) => {
   const isTrackInPlaylist = (track) => {
@@ -8,50 +49,26 @@ const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTr
   };
 
   return (
-    <Box>
+    <TrackListContainer>
       <Typography variant="h6" gutterBottom>Search Results</Typography>
       <List sx={{ width: '100%', padding: 0 }}>
         {tracks.map(track => (
-          <ListItem
+          <StyledListItem
             key={track.id}
             onMouseEnter={() => onTrackHover(track)}
             onMouseLeave={onTrackLeave}
-            sx={{ 
-              padding: '8px 16px',
-              '&:hover': {
-                backgroundColor: 'action.hover',
-              },
-              '&:hover .play-pause-overlay': {
-                opacity: 1,
-              },
-            }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', width: '100%' }}>
+            <ListItemContent>
               <ListItemAvatar sx={{ position: 'relative', minWidth: '56px' }}>
-                <Avatar src={track.album.images[2]?.url} variant="square" sx={{ width: 56, height: 56 }} />
+                <TrackAvatar src={track.album.images[2]?.url} variant="square" />
                 {track.preview_url && (
-                  <Box 
-                    className="play-pause-overlay"
-                    sx={{
-                      position: 'absolute',
-                      top: 0,
-                      left: 0,
-                      width: '100%',
-                      height: '100%',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      background: 'rgba(0, 0, 0, 0.5)',
-                      opacity: 0,
-                      transition: 'opacity 0.2s',
-                    }}
-                  >
+                  <PlayPauseOverlay className="play-pause-overlay">
                     {currentlyPlayingTrack?.id === track.id ? (
                       <Pause color="white" size={24} />
                     ) : (
                       <Play color="white" size={24} />
                     )}
-                  </Box>
+                  </PlayPauseOverlay>
                 )}
               </ListItemAvatar>
               <ListItemText
@@ -75,11 +92,11 @@ const TrackList = ({ tracks, onAddToPlaylist, playlistTracks, onTrackHover, onTr
               >
                 {isTrackInPlaylist(track) ? <Check /> : <Plus />}
               </IconButton>
-            </Box>
-          </ListItem>
+            </ListItemContent>
+          </StyledListItem>
         ))}
       </List>
-    </Box>
+    </TrackListContainer>
   );
 };
 

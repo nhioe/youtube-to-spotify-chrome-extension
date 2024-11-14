@@ -2,43 +2,55 @@
 
 const SPOTIFY_API_BASE_URL = 'https://api.spotify.com/v1';
 
+class SpotifyAPIError extends Error {
+  constructor(message, statusCode) {
+    super(message);
+    this.name = 'SpotifyAPIError';
+    this.statusCode = statusCode;
+  }
+}
+
 class SpotifyAPI {
   static async makeRequest(endpoint, method = 'GET', body = null) {
-    const { accessToken } = await chrome.storage.local.get('accessToken');
-    if (!accessToken) {
-      throw new Error('No access token available');
-    }
-
-    const url = `${SPOTIFY_API_BASE_URL}${endpoint}`;
-    console.log('Making request to:', url); // Add this line for debugging
-
-    const response = await fetch(url, {
-      method,
-      headers: {
-        Authorization: `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-      body: body ? JSON.stringify(body) : null,
-    });
-
-    if (!response.ok) {
-      if (response.status === 401) {
-        // Token expired, try to refresh
-        await this.refreshAccessToken();
-        return this.makeRequest(endpoint, method, body);
+    try {
+      const { accessToken } = await chrome.storage.local.get('accessToken');
+      if (!accessToken) {
+        throw new SpotifyAPIError('No access token available', 401);
       }
-      throw new Error(`API request failed: ${response.statusText}`);
+
+      const url = `${SPOTIFY_API_BASE_URL}${endpoint}`;
+      console.log('Request to:', url);
+
+      const response = await fetch(url, {
+        method,
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+          'Content-Type': 'application/json',
+        },
+        body: body ? JSON.stringify(body) : null,
+      });
+
+      if (!response.ok) {
+        if (response.status === 401) {
+          // Token expired, try to refresh
+          await this.refreshAccessToken();
+          return this.makeRequest(endpoint, method, body);
+        }
+        throw new SpotifyAPIError(`API request failed: ${response.statusText}`, response.status);
+      }
+
+      return response.json();
+    } catch (error) {
+      console.error('Spotify API Error:', error);
+      throw error;
     }
-    const test = response.clone();
-    console.log(test.json());
-    return response.json();
   }
 
   static async refreshAccessToken() {
     try {
       const response = await chrome.runtime.sendMessage({ action: 'refreshToken' });
       if (!response || !response.success) {
-        throw new Error(response ? response.error : 'Failed to refresh token');
+        throw new SpotifyAPIError(response ? response.error : 'Failed to refresh token', 401);
       }
       return response.token;
     } catch (error) {
