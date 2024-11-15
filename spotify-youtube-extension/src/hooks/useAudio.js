@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { PREVIEW_DELAY } from '../constants/values';
-import { useSnackbar } from '../contexts/SnackbarContext';
+import { useSnackbar } from './SnackbarContext';
 
 export const useAudio = () => {
   const { showSnackbar } = useSnackbar();

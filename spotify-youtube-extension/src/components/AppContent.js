@@ -4,7 +4,7 @@ import { CircularProgress, Button, Avatar } from '@mui/material';
 import { Search } from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useAudio } from '../hooks/useAudio';
-import { useSnackbar } from '../contexts/SnackbarContext';
+import { useSnackbar } from '../hooks/SnackbarContext';
 import SpotifyAPI from '../api/spotifyAPI';
 import { ITEMS_PER_PAGE, ITEMS_TO_PRELOAD } from '../constants/values';
 import { MESSAGES, DIALOG_TITLES } from '../constants/messages';
