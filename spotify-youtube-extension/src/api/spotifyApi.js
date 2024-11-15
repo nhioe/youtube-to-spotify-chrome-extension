@@ -92,14 +92,6 @@ class SpotifyAPI {
       `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&offset=${offset}`,
     );
   }
-  /*
-  static async searchArtistSong(artist, song) {
-    console.log(song);
-    const query = `artist:${artist} track:${song}`;
-    const url = `/search?q=${encodeURIComponent(query)}&type=track&limit=20&offset=0`;
-    return this.makeRequest(url);
-  }
-*/
 
   static async addTrackToPlaylist(playlistId, trackUri) {
     return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', {
