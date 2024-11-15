@@ -131,6 +131,7 @@ const AppContent = () => {
     checkLoginStatus();
   }, []);
 
+  // Pull current playlist
   useEffect(() => {
     if (selectedPlaylist) {
       fetchPlaylistTracks(selectedPlaylist);

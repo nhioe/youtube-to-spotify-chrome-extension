@@ -19,13 +19,6 @@
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
   },
-  "oauth2": {
-    "client_id": "153a04b007bd437c96080f31c98d65d0",
-    "scopes": [
-      "user-read-private",
-      "user-read-email"
-    ]
-  },
   "web_accessible_resources": [
     {
       "resources": ["callback.html"],
