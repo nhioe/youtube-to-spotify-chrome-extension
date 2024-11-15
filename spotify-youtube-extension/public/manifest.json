@@ -3,8 +3,8 @@
   "name": "Spotify YouTube Extension",
   "version": "1.0",
   "description": "Add YouTube songs to your Spotify playlist",
-  "permissions": ["identity", "storage", "webNavigation", "activeTab"],
-  "host_permissions": ["https://accounts.spotify.com/*", "https://api.spotify.com/*"],
+  "permissions": ["identity", "storage", "webNavigation", "activeTab", "scripting"],
+  "host_permissions": ["https://accounts.spotify.com/*", "https://api.spotify.com/*", "https://www.youtube.com/*"],
   "action": {
     "default_popup": "index.html",
     "default_title": "Spotify YouTube Extension"
@@ -12,6 +12,12 @@
   "background": {
     "service_worker": "background.js",
     "type": "module"
+  },
+  "icons": {
+    "16": "icons/icon16.png",
+    "32": "icons/icon32.png",
+    "48": "icons/icon48.png",
+    "128": "icons/icon128.png"
   },
   "oauth2": {
     "client_id": "153a04b007bd437c96080f31c98d65d0",

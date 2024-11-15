@@ -2,6 +2,7 @@
 
 import { getToken, refreshAuthToken } from './authTokens.js';
 
+// Listen to create auth redirect
 chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
   if (request.action === 'openAuthTab') {
     chrome.tabs.create({ url: request.url });

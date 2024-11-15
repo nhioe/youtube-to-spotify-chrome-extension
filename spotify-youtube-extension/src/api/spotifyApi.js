@@ -32,7 +32,7 @@ class SpotifyAPI {
 
       if (!response.ok) {
         if (response.status === 401) {
-          // Token expired, try to refresh
+          // Token expired try to refresh
           await this.refreshAccessToken();
           return this.makeRequest(endpoint, method, body);
         }
@@ -75,6 +75,14 @@ class SpotifyAPI {
     return this.makeRequest('/me/playlists');
   }
 
+  static async createPlaylist(playlistName, playlistDescription) {
+    return this.makeRequest('/me/playlists', 'POST', {
+      name: playlistName,
+      description: playlistDescription,
+      public: false,
+    });
+  }
+
   static async getPlaylistTracks(playlistId) {
     return this.makeRequest(`/playlists/${playlistId}/tracks`);
   }
@@ -84,6 +92,14 @@ class SpotifyAPI {
       `/search?q=${encodeURIComponent(query)}&type=track&limit=${limit}&offset=${offset}`,
     );
   }
+  /*
+  static async searchArtistSong(artist, song) {
+    console.log(song);
+    const query = `artist:${artist} track:${song}`;
+    const url = `/search?q=${encodeURIComponent(query)}&type=track&limit=20&offset=0`;
+    return this.makeRequest(url);
+  }
+*/
 
   static async addTrackToPlaylist(playlistId, trackUri) {
     return this.makeRequest(`/playlists/${playlistId}/tracks`, 'POST', {
