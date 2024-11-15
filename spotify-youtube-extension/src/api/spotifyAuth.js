@@ -1,4 +1,5 @@
 /*global chrome*/
+
 export const generateRandomString = (length) => {
   const possible =
     'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';

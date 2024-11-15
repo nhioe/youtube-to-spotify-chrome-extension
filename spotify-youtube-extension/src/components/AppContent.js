@@ -9,13 +9,13 @@ import SpotifyAPI from '../api/spotifyAPI';
 import { ITEMS_PER_PAGE, ITEMS_TO_PRELOAD } from '../constants/values';
 import { MESSAGES, DIALOG_TITLES } from '../constants/messages';
 import LoginView from './LoginView';
-import SearchBar from './SearchBar';
-import TrackList from './TrackList';
-import Pagination from './Pagination';
-import PlaylistSelector from './PlaylistSelector';
-import PlaylistPreview from './PlaylistPreview';
-import ConfirmationDialog from './ConfirmationDialog';
-import CreatePlaylistDialog from './CreatePlaylistDialog';
+import SearchBar from './search/SearchBar';
+import TrackList from './search/TrackList';
+import Pagination from './search/Pagination';
+import PlaylistSelector from './playlist/PlaylistSelector';
+import PlaylistPreview from './playlist/PlaylistPreview';
+import ConfirmationDialog from './dialogs/ConfirmationDialog';
+import CreatePlaylistDialog from './dialogs/CreatePlaylistDialog';
 import { startAuthFlow } from '../api/spotifyAuth';
 
 const AppContainer = styled('div')(({ theme }) => ({
