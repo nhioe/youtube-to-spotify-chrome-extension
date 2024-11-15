@@ -7,7 +7,7 @@ export const MESSAGES = {
     'Failed to fetch playlist tracks. Please try again.',
   SIGN_IN_ERROR: 'Failed to sign in. Please try again.',
   LOGOUT_CONFIRMATION: 'Are you sure you want to log out?',
-  LOGOUT_SUCCESS: 'Logged out successfully',
+  LOGOUT_SUCCESS: 'Logged out successfully.',
   SEARCH_ERROR: 'Failed to search tracks. Please try again.',
   LOAD_MORE_ERROR: 'Failed to load more tracks. Please try again.',
   SELECT_PLAYLIST_WARNING: 'Please select a playlist first.',
@@ -22,10 +22,13 @@ export const MESSAGES = {
   TRACK_REMOVE_ERROR: 'Failed to remove track from playlist. Please try again.',
   YOUTUBE_NAVIGATION_WARNING: 'Please navigate to a YouTube video page.',
   YOUTUBE_TITLE_ERROR: 'Failed to get YouTube video title. Please try again.',
+  PLAYLIST_CREATED_SUCCESS: 'New playlist created successfully!',
+  PLAYLIST_CREATED_ERROR: 'Failed to create new playlist. Please try again.',
 };
 
 export const DIALOG_TITLES = {
   LOGOUT_CONFIRMATION: 'Confirm Logout',
   ADD_TRACK_CONFIRMATION: 'Confirm Add Track',
   REMOVE_TRACK_CONFIRMATION: 'Confirm Remove Track',
+  CREATE_PLAYLIST: 'Create Playlist',
 };

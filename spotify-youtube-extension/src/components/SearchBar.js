@@ -23,6 +23,7 @@ const SearchBar = ({ searchQuery, setSearchQuery, onSearch }) => {
   return (
     <SearchContainer>
       <TextField
+        label="Spotify Search"
         fullWidth
         variant="outlined"
         placeholder="Search for tracks..."

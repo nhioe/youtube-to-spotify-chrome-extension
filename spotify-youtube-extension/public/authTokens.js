@@ -37,7 +37,7 @@ export const getToken = async (code) => {
       await chrome.storage.local.set({
         accessToken: data.access_token,
         refreshToken: data.refresh_token,
-        expiresIn: Date.now() + data.expires_in * 1000, // Store expiration time
+        expiresIn: Date.now() + data.expires_in * 1000,
       });
       return data.access_token;
     } else {
@@ -79,7 +79,7 @@ export const refreshAuthToken = async () => {
       await chrome.storage.local.set({
         accessToken: data.access_token,
         expiresIn: Date.now() + data.expires_in * 1000,
-        ...(data.refresh_token && { refreshToken: data.refresh_token }), // Update refresh token only if a new one is provided
+        ...(data.refresh_token && { refreshToken: data.refresh_token }),
       });
       return data.access_token;
     } else {

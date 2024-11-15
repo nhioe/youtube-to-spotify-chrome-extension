@@ -1,11 +1,11 @@
 /*global chrome*/
 import React, { useState, useEffect } from 'react';
-import { CircularProgress, Button } from '@mui/material';
+import { CircularProgress, Button, Avatar } from '@mui/material';
 import { Search } from 'lucide-react';
 import { styled } from '@mui/material/styles';
 import { useAudio } from '../hooks/useAudio';
 import { useSnackbar } from '../contexts/SnackbarContext';
-import * as spotifyService from '../services/spotifyService';
+import SpotifyAPI from '../api/spotifyAPI';
 import { ITEMS_PER_PAGE, ITEMS_TO_PRELOAD } from '../constants/values';
 import { MESSAGES, DIALOG_TITLES } from '../constants/messages';
 import LoginView from './LoginView';
@@ -15,7 +15,8 @@ import Pagination from './Pagination';
 import PlaylistSelector from './PlaylistSelector';
 import PlaylistPreview from './PlaylistPreview';
 import ConfirmationDialog from './ConfirmationDialog';
-import { startAuthFlow } from '../utils/spotifyAuth';
+import CreatePlaylistDialog from './CreatePlaylistDialog';
+import { startAuthFlow } from '../api/spotifyAuth';
 
 const AppContainer = styled('div')(({ theme }) => ({
   width: '400px',
@@ -51,6 +52,11 @@ const Title = styled('h1')(({ theme }) => ({
   fontSize: '24px',
   marginBottom: theme.spacing(2),
 }));
+
+const ProfileAvatar = styled(Avatar)({
+  width: 60,
+  height: 60,
+});
 
 const ErrorText = styled('p')(({ theme }) => ({
   color: theme.palette.error.main,
@@ -103,6 +109,13 @@ const AppContent = () => {
   const [isSearching, setIsSearching] = useState(false);
 
   const [confirmationDialog, setConfirmationDialog] = useState({
+    open: false,
+    title: '',
+    content: '',
+    onConfirm: null,
+  });
+
+  const [createPlaylistDialog, setCreatePlaylistDialog] = useState({
     open: false,
     title: '',
     content: '',
@@ -183,7 +196,7 @@ const AppContent = () => {
 
   const fetchProfile = async () => {
     try {
-      const data = await spotifyService.fetchProfile();
+      const data = await SpotifyAPI.fetchProfile();
       setProfile(data);
     } catch (error) {
       showSnackbar(MESSAGES.PROFILE_FETCH_ERROR, 'error');
@@ -193,7 +206,7 @@ const AppContent = () => {
 
   const fetchPlaylists = async () => {
     try {
-      const data = await spotifyService.fetchPlaylists();
+      const data = await SpotifyAPI.getUserPlaylists();
       setPlaylists(data.items);
     } catch (error) {
       showSnackbar(MESSAGES.PLAYLISTS_FETCH_ERROR, 'error');
@@ -202,24 +215,20 @@ const AppContent = () => {
 
   const fetchPlaylistTracks = async (playlistId) => {
     try {
-      const data = await spotifyService.fetchPlaylistTracks(playlistId);
+      const data = await SpotifyAPI.getPlaylistTracks(playlistId);
       setSelectedPlaylistTracks(data.items.map((item) => item.track));
     } catch (error) {
       showSnackbar(MESSAGES.PLAYLIST_TRACKS_FETCH_ERROR, 'error');
     }
   };
 
-  /* SEARCH & NAV */
+  /* SEARCH */
 
   const handleSearch = async (query = searchQuery) => {
     if (!query.trim()) return;
     try {
       setIsSearching(true);
-      const data = await spotifyService.searchTracks(
-        query,
-        ITEMS_TO_PRELOAD,
-        0,
-      );
+      const data = await SpotifyAPI.searchTracks(query, ITEMS_TO_PRELOAD, 0);
       setSearchResults(data.tracks.items);
       setTotalResults(data.tracks.total);
       setCurrentPage(1);
@@ -232,22 +241,59 @@ const AppContent = () => {
 
   const handleYouTubeSearch = async () => {
     try {
+      // Get the active tab from the current window
       const [tab] = await chrome.tabs.query({
         active: true,
         currentWindow: true,
       });
-      if (tab.url.includes('youtube.com/watch')) {
-        const videoTitle = tab.title.replace(' - YouTube', '');
-        setSearchQuery(videoTitle);
-        await handleSearch(videoTitle);
+
+      if (tab.url && tab.url.includes('youtube.com/watch')) {
+        const extractYouTubeVideoInfo = () => {
+          const videoTitle = document.title.replace(' - YouTube', '');
+          const videoId = window.location.pathname.split('/')[2];
+
+          const videoContainer = document.querySelector('#owner');
+          const possibleArtists = videoContainer.querySelectorAll('#text');
+          const artist =
+            Array.from(possibleArtists)
+              .filter((element) =>
+                element.querySelector('a.yt-formatted-string'),
+              )
+              .map((element) =>
+                element
+                  .querySelector('a.yt-formatted-string')
+                  .textContent.trim(),
+              )[0] || '';
+
+          const videoData = {
+            title: videoTitle,
+            videoId: videoId,
+            artist: artist,
+          };
+
+          return videoData;
+        };
+
+        chrome.scripting
+          .executeScript({
+            target: { tabId: tab.id },
+            func: extractYouTubeVideoInfo,
+          })
+          .then(async (videoData) => {
+            const v1 = videoData[0].result;
+            const query = v1.title + ' ' + v1.artist;
+            setSearchQuery(query);
+            await handleSearch(query);
+          });
       } else {
         showSnackbar(MESSAGES.YOUTUBE_NAVIGATION_WARNING, 'warning');
       }
     } catch (error) {
-      console.error('Failed to get YouTube video title:', error);
       showSnackbar(MESSAGES.YOUTUBE_TITLE_ERROR, 'error');
     }
   };
+
+  /* NAV */
 
   const handlePreviousPage = () => {
     setCurrentPage((prevPage) => Math.max(prevPage - 1, 1));
@@ -263,7 +309,7 @@ const AppContent = () => {
     ) {
       try {
         setisLoadingSearch(true);
-        const data = await spotifyService.searchTracks(
+        const data = await SpotifyAPI.searchTracks(
           searchQuery,
           ITEMS_TO_PRELOAD,
           searchResults.length,
@@ -311,7 +357,7 @@ const AppContent = () => {
   const addTrackToPlaylist = async (trackUri) => {
     try {
       setIsUpdatingPlaylist(true);
-      await spotifyService.addTrackToPlaylist(selectedPlaylist, trackUri);
+      await SpotifyAPI.addTrackToPlaylist(selectedPlaylist, trackUri);
       showSnackbar(MESSAGES.TRACK_ADDED_SUCCESS, 'success');
       await fetchPlaylistTracks(selectedPlaylist);
     } catch (error) {
@@ -334,10 +380,7 @@ const AppContent = () => {
       onConfirm: async () => {
         try {
           setIsUpdatingPlaylist(true);
-          await spotifyService.removeTrackFromPlaylist(
-            selectedPlaylist,
-            trackUri,
-          );
+          await SpotifyAPI.removeTrackFromPlaylist(selectedPlaylist, trackUri);
           showSnackbar(MESSAGES.TRACK_REMOVED_SUCCESS, 'success');
           await fetchPlaylistTracks(selectedPlaylist);
         } catch (error) {
@@ -349,6 +392,35 @@ const AppContent = () => {
     });
   };
 
+  const handleCreatePlaylist = async () => {
+    setCreatePlaylistDialog({
+      open: true,
+      title: DIALOG_TITLES.CREATE_PLAYLIST,
+      content: '',
+      onConfirm: async (playlistName, playlistDescription) => {
+        await createPlaylist(playlistName, playlistDescription);
+      },
+    });
+  };
+
+  const createPlaylist = async (playlistName, playlistDescription) => {
+    try {
+      setIsUpdatingPlaylist(true);
+      const data = await SpotifyAPI.createPlaylist(
+        playlistName,
+        playlistDescription,
+      );
+      showSnackbar(MESSAGES.PLAYLIST_CREATED_SUCCESS, 'success');
+      await fetchPlaylists(); // refetch playlists
+      setSelectedPlaylist(data.id);
+    } catch (error) {
+      showSnackbar(MESSAGES.PLAYLIST_CREATED_ERROR, 'error');
+    } finally {
+      setIsUpdatingPlaylist(false);
+    }
+  };
+
+  // Loading Progress
   if (isLoading) {
     return (
       <AppContainer>
@@ -368,7 +440,13 @@ const AppContent = () => {
       ) : (
         <>
           <Header>
-            <Title>{profile.display_name}</Title>
+            <Title>
+              <ProfileAvatar
+                src={profile.images[0]?.url}
+                alt={profile.display_name}
+              />
+              Welcome, {profile.display_name}
+            </Title>
             <Button variant="outlined" onClick={handleLogout}>
               Logout
             </Button>
@@ -393,40 +471,47 @@ const AppContent = () => {
             playlists={playlists}
             selectedPlaylist={selectedPlaylist}
             setSelectedPlaylist={setSelectedPlaylist}
+            createPlaylist={handleCreatePlaylist}
           />
 
-          {selectedPlaylist && (
-            <PlaylistPreview
-              tracks={selectedPlaylistTracks}
-              onRemoveTrack={handleRemoveFromPlaylist}
-              onTrackHover={handlePreviewPlay}
-              onTrackLeave={handlePreviewStop}
-              currentlyPlayingTrack={currentlyPlayingTrack}
-            />
-          )}
-
-          {searchResults.length > 0 && (
-            <>
-              <TrackList
-                tracks={searchResults.slice(
-                  (currentPage - 1) * ITEMS_PER_PAGE,
-                  currentPage * ITEMS_PER_PAGE,
-                )}
-                onAddToPlaylist={handleAddToPlaylist}
-                playlistTracks={selectedPlaylistTracks}
+          {
+            // display selected playlist
+            selectedPlaylist && (
+              <PlaylistPreview
+                tracks={selectedPlaylistTracks}
+                onRemoveTrack={handleRemoveFromPlaylist}
                 onTrackHover={handlePreviewPlay}
                 onTrackLeave={handlePreviewStop}
                 currentlyPlayingTrack={currentlyPlayingTrack}
               />
-              <Pagination
-                currentPage={currentPage}
-                hasMore={currentPage * ITEMS_PER_PAGE < totalResults}
-                onPreviousPage={handlePreviousPage}
-                onNextPage={handleNextPage}
-                isLoading={isSearching || isLoadingSearch}
-              />
-            </>
-          )}
+            )
+          }
+
+          {
+            // display search results
+            searchResults.length > 0 && (
+              <>
+                <TrackList
+                  tracks={searchResults.slice(
+                    (currentPage - 1) * ITEMS_PER_PAGE,
+                    currentPage * ITEMS_PER_PAGE,
+                  )}
+                  onAddToPlaylist={handleAddToPlaylist}
+                  playlistTracks={selectedPlaylistTracks}
+                  onTrackHover={handlePreviewPlay}
+                  onTrackLeave={handlePreviewStop}
+                  currentlyPlayingTrack={currentlyPlayingTrack}
+                />
+                <Pagination
+                  currentPage={currentPage}
+                  hasMore={currentPage * ITEMS_PER_PAGE < totalResults}
+                  onPreviousPage={handlePreviousPage}
+                  onNextPage={handleNextPage}
+                  isLoading={isSearching || isLoadingSearch}
+                />
+              </>
+            )
+          }
         </>
       )}
 
@@ -448,11 +533,30 @@ const AppContent = () => {
           })
         }
       />
-      {(isUpdatingPlaylist || isLoadingSearch) && (
-        <TranslucentLoading>
-          <CircularProgress />
-        </TranslucentLoading>
-      )}
+      <CreatePlaylistDialog
+        open={createPlaylistDialog.open}
+        onConfirm={(playlistName, playlistDescription) => {
+          createPlaylistDialog.onConfirm(playlistName, playlistDescription);
+          setCreatePlaylistDialog({
+            ...createPlaylistDialog,
+            open: false,
+          });
+        }}
+        onCancel={() =>
+          setCreatePlaylistDialog({
+            ...createPlaylistDialog,
+            open: false,
+          })
+        }
+      />
+      {
+        // loading for actions
+        (isUpdatingPlaylist || isLoadingSearch) && (
+          <TranslucentLoading>
+            <CircularProgress />
+          </TranslucentLoading>
+        )
+      }
     </AppContainer>
   );
 };
